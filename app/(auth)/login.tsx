@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
@@ -48,7 +49,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      showAlert("⚠️ Campos incompletos", "Ingresa tu correo y contraseña.");
+      showAlert("Campos incompletos", "Ingresa tu correo y contraseña.");
       return;
     }
 
@@ -62,24 +63,22 @@ export default function LoginScreen() {
       const data = await res.json();
 
       if (res.ok && data.access) {
-        // ✅ Guardar token y datos del usuario
         await AsyncStorage.setItem("token", data.access);
         await AsyncStorage.setItem("user", JSON.stringify(data));
 
-        showAlert("✅ Bienvenido", `Hola ${data.username || "usuario"}`);
+        showAlert("Bienvenido", `Hola ${data.username || "usuario"}`);
         router.replace("/(tabs)");
       } else {
-        // 🔹 Manejo de errores más detallado
         const errorMessage =
           data.detail ||
           data.non_field_errors?.[0] ||
           "Credenciales incorrectas.";
-        showAlert("❌ Error", errorMessage);
+        showAlert("Error", errorMessage);
       }
     } catch (error) {
       console.error("Login error:", error);
       showAlert(
-        "⚠️ Error de conexión",
+        "Error de conexión",
         "No se pudo conectar con el servidor. Verifica tu red."
       );
     }
@@ -91,12 +90,13 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 60 : 0}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
     >
       <ScrollView
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
         <Animated.View
           style={[
@@ -110,6 +110,7 @@ export default function LoginScreen() {
             resizeMode="contain"
           />
 
+          {/* 🔹 Campo Email */}
           <TextInput
             placeholder="Correo electrónico"
             placeholderTextColor="#A0A0A0"
@@ -120,22 +121,27 @@ export default function LoginScreen() {
             autoCapitalize="none"
           />
 
+          {/* 🔹 Campo Contraseña con ícono */}
           <View style={styles.passwordContainer}>
             <TextInput
               placeholder="Contraseña"
               placeholderTextColor="#A0A0A0"
-              style={[styles.input, { flex: 1 }]}
+              style={[styles.input, { flex: 1, paddingRight: 45 }]}
               value={password}
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
+              autoCapitalize="none"
             />
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
-              style={styles.showPasswordButton}
+              style={styles.eyeIcon}
+              activeOpacity={0.7}
             >
-              <Text style={styles.showPasswordText}>
-                {showPassword ? "Ocultar" : "Ver"}
-              </Text>
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={22}
+                color="#4A4A4A"
+              />
             </TouchableOpacity>
           </View>
 
@@ -143,10 +149,12 @@ export default function LoginScreen() {
             <Text style={styles.link}>¿Olvidaste tu contraseña?</Text>
           </TouchableOpacity>
 
+          {/* 🔹 Botón Iniciar Sesión */}
           <TouchableOpacity style={styles.button} onPress={handleLogin}>
             <Text style={styles.buttonText}>Iniciar Sesión</Text>
           </TouchableOpacity>
 
+          {/* 🔹 Botón Invitado */}
           <TouchableOpacity
             style={[styles.button, styles.guestButton]}
             onPress={handleGuestAccess}
@@ -154,6 +162,7 @@ export default function LoginScreen() {
             <Text style={styles.guestButtonText}>Entrar como Invitado</Text>
           </TouchableOpacity>
 
+          {/* 🔹 Enlace Registro */}
           <TouchableOpacity onPress={goToRegister}>
             <Text style={styles.registerLink}>
               ¿No tienes cuenta?{" "}
@@ -172,10 +181,14 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 20,
+    paddingVertical: 40,
   },
-  innerContainer: { width: "100%", paddingHorizontal: 30, alignItems: "center" },
-  logo: { width: 220, height: 220, marginBottom: 30 },
+  innerContainer: {
+    width: "100%",
+    paddingHorizontal: 30,
+    alignItems: "center",
+  },
+  logo: { width: 220, height: 220, marginBottom: 20 },
   input: {
     width: "100%",
     height: 55,
@@ -191,9 +204,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     width: "100%",
     marginVertical: 10,
+    position: "relative",
   },
-  showPasswordButton: { paddingHorizontal: 10 },
-  showPasswordText: { color: "#4A4A4A", fontSize: 14, fontWeight: "600" },
+  eyeIcon: {
+    position: "absolute",
+    right: 15,
+    padding: 5,
+  },
   link: {
     color: "#4A4A4A",
     fontSize: 14,

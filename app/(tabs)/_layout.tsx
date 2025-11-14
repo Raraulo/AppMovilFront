@@ -1,117 +1,165 @@
-import { FontAwesome, Ionicons } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
-  Easing,
   Platform,
   Pressable,
   StyleSheet,
+  Text,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { getCart, storageEvents } from "../../utils/storage";
 
-/**
- * TabBar personalizada y elegante (flotante + sombra + bordes)
- */
-function FancyTabBar({ state, descriptors, navigation }: any) {
+// 🎨 Definiciones de color y tamaño
+const ICON_SIZE = 26; // ⬆️ Íconos más grandes
+const ICON_COLOR = "#000000"; // 🖤 Íconos negros
+const BADGE_COLOR = "#ff3b5c"; // Color del badge
+
+/* -------------------------------------------------------
+    🧩 Subcomponente TabItem (solo íconos animados)
+--------------------------------------------------------*/
+function TabItem({ route, index, state, navigation, cartCount }: any) {
+  const isFocused = state.index === index;
+  const scale = useRef(new Animated.Value(isFocused ? 1.15 : 1)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: isFocused ? 1.15 : 1,
+      friction: 7,
+      tension: 100,
+      useNativeDriver: true,
+    }).start();
+  }, [isFocused]);
+
+  const onPress = () => {
+    const event = navigation.emit({
+      type: "tabPress",
+      target: route.key,
+      canPreventDefault: true,
+    });
+
+    if (route.name === "index") {
+      if (isFocused) {
+        navigation.emit({ type: "scrollToTop" });
+      } else {
+        navigation.navigate("(tabs)", { screen: "index" });
+      }
+      return;
+    }
+
+    if (!isFocused && !event.defaultPrevented) {
+      navigation.navigate(route.name);
+    }
+  };
+
+  let icon = null;
+
+  if (route.name === "index") {
+    icon = (
+      <Ionicons
+        name={isFocused ? "home" : "home-outline"}
+        size={ICON_SIZE}
+        color={ICON_COLOR}
+      />
+    );
+  } else if (route.name === "favoritos/index") {
+    icon = (
+      <Ionicons
+        name={isFocused ? "heart" : "heart-outline"}
+        size={ICON_SIZE}
+        color={ICON_COLOR}
+      />
+    );
+  } else if (route.name === "carrito/index") {
+    icon = (
+      <View>
+        <Ionicons
+          name={isFocused ? "basket" : "basket-outline"}
+          size={ICON_SIZE}
+          color={ICON_COLOR}
+        />
+        {cartCount > 0 && (
+          <View style={styles.cartBadge}>
+            <Text style={styles.cartBadgeText}>
+              {cartCount > 9 ? "9+" : cartCount}
+            </Text>
+          </View>
+        )}
+      </View>
+    );
+  } else if (route.name === "profile") {
+    icon = (
+      <Ionicons
+        name={isFocused ? "person" : "person-outline"}
+        size={ICON_SIZE}
+        color={ICON_COLOR}
+      />
+    );
+  }
+
+  return (
+    <Pressable
+      key={route.key}
+      onPress={onPress}
+      style={({ pressed }) => [styles.tabItem, pressed && { opacity: 0.85 }]}
+    >
+      <Animated.View style={{ transform: [{ scale }] }}>{icon}</Animated.View>
+    </Pressable>
+  );
+}
+
+/* -------------------------------------------------------
+    🌑 FancyTabBar — barra inferior personalizada
+--------------------------------------------------------*/
+export function FancyTabBar({ state, navigation, cartCount: externalCartCount }: any) {
   const insets = useSafeAreaInsets();
+  const [cartCount, setCartCount] = useState(0);
+
+  useEffect(() => {
+    const loadCart = async () => {
+      try {
+        const cart = await getCart();
+        setCartCount(cart.length);
+      } catch {
+        setCartCount(0);
+      }
+    };
+
+    loadCart();
+
+    const onCartChange = () => loadCart();
+    storageEvents.on("cartChanged", onCartChange);
+
+    return () => {
+      storageEvents.off("cartChanged", onCartChange);
+    };
+  }, [externalCartCount]);
 
   return (
     <View
-      pointerEvents="box-none"
       style={[
-        styles.fabWrapper,
-        { paddingBottom: Math.max(insets.bottom - 6, 6) },
+        styles.fixedBarContainer,
+        {
+          paddingBottom: Math.max(insets.bottom, 10),
+          // 📱 Solo iOS: subir un poco la barra
+          height: Platform.OS === "ios" ? 80 : 65,
+        },
       ]}
     >
       <View style={styles.tabBarContainer}>
         {state.routes.map((route: any, index: number) => {
-          const { options } = descriptors[route.key];
-          const isFocused = state.index === index;
-
-          const onPress = () => {
-            const event = navigation.emit({
-              type: "tabPress",
-              target: route.key,
-              canPreventDefault: true,
-            });
-            if (!isFocused && !event.defaultPrevented) {
-              navigation.navigate(route.name, route.params);
-            }
-          };
-
-          const onLongPress = () => {
-            navigation.emit({
-              type: "tabLongPress",
-              target: route.key,
-            });
-          };
-
-          // Animación sutil del icono activo
-          const scale = React.useRef(
-            new Animated.Value(isFocused ? 1.1 : 1)
-          ).current;
-          React.useEffect(() => {
-            Animated.timing(scale, {
-              toValue: isFocused ? 1.12 : 1,
-              duration: 160,
-              easing: Easing.out(Easing.quad),
-              useNativeDriver: true,
-            }).start();
-          }, [isFocused]);
-
-          const color = isFocused ? "#121212" : "#8e8e93";
-          const size = 23;
-
-          let icon = null;
-          if (route.name === "index") {
-            icon = (
-              <Ionicons
-                name={isFocused ? "home" : "home-outline"}
-                size={size}
-                color={color}
-              />
-            );
-          } else if (route.name === "top") {
-            icon = (
-              <FontAwesome name="line-chart" size={size} color={color} />
-            );
-          } else if (route.name === "profile") {
-            icon = (
-              <Ionicons
-                name={isFocused ? "person" : "person-outline"}
-                size={size}
-                color={color}
-              />
-            );
-          } else {
-            // cualquier otra ruta (como facturas) no tendrá icono en el tab bar
-            return null;
-          }
-
+          if (route.name.includes("facturas") || route.name === "top") return null;
           return (
-            <Pressable
+            <TabItem
               key={route.key}
-              onPress={onPress}
-              onLongPress={onLongPress}
-              style={({ pressed }) => [
-                styles.tabItem,
-                pressed && { opacity: 0.75 },
-              ]}
-            >
-              <Animated.View style={{ transform: [{ scale }] }}>
-                {icon}
-              </Animated.View>
-              <View style={styles.indicatorBox}>
-                <View
-                  style={[
-                    styles.indicatorDot,
-                    { opacity: isFocused ? 1 : 0 },
-                  ]}
-                />
-              </View>
-            </Pressable>
+              route={route}
+              index={index}
+              state={state}
+              navigation={navigation}
+              cartCount={cartCount}
+            />
           );
         })}
       </View>
@@ -119,6 +167,9 @@ function FancyTabBar({ state, descriptors, navigation }: any) {
   );
 }
 
+/* -------------------------------------------------------
+    🧭 Tabs Layout principal
+--------------------------------------------------------*/
 export default function TabsLayout() {
   return (
     <Tabs
@@ -128,68 +179,60 @@ export default function TabsLayout() {
       }}
       tabBar={(props) => <FancyTabBar {...props} />}
     >
-      {/* 🏠 Inicio */}
       <Tabs.Screen name="index" />
-
-      {/* 📊 Top */}
-      <Tabs.Screen name="top" />
-
-      {/* 👤 Perfil */}
+      <Tabs.Screen name="favoritos/index" />
+      <Tabs.Screen name="carrito/index" />
       <Tabs.Screen name="profile" />
-
-      {/* 🔒 Facturas (oculta en el tab bar) */}
-      <Tabs.Screen
-        name="facturas"
-        options={{
-          href: null, // 👉 esto oculta la pestaña del tab bar
-        }}
-      />
     </Tabs>
   );
 }
 
+/* -------------------------------------------------------
+    🎨 Estilos
+--------------------------------------------------------*/
 const styles = StyleSheet.create({
-  fabWrapper: {
+  fixedBarContainer: {
     position: "absolute",
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 6,
-    alignItems: "center",
+    backgroundColor: "#ffffff", // Fondo blanco
+    borderTopWidth: 0,
+    shadowColor: "rgba(14, 1, 31, 1)",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: -4 },
+    shadowRadius: 10,
+    elevation: 8,
   },
   tabBarContainer: {
     flexDirection: "row",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 12,
-    borderWidth: Platform.OS === "ios" ? StyleSheet.hairlineWidth : 0,
-    borderColor: "#E9E9EB",
-    minWidth: 230,
-    maxWidth: 460,
-    width: "90%",
-    justifyContent: "space-between",
+    alignItems: "center",
+    justifyContent: "space-around",
+    flex: 1,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    minWidth: 64,
+    paddingVertical: 8,
   },
-  indicatorBox: {
-    height: 8,
-    marginTop: 4,
+  cartBadge: {
+    position: "absolute",
+    top: -5,
+    right: -8,
+    backgroundColor: BADGE_COLOR,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: "#ffffff",
   },
-  indicatorDot: {
-    width: 18,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: "#121212",
+  cartBadgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "bold",
   },
 });

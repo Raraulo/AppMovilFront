@@ -1,3 +1,8 @@
+import {
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_600SemiBold,
+  useFonts,
+} from "@expo-google-fonts/playfair-display";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Picker } from "@react-native-picker/picker";
@@ -6,24 +11,40 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Animated,
+  Dimensions,
+  Image,
   Linking,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view";
 
-const API_URL = "http://192.168.1.5:8000";
+const { width, height } = Dimensions.get("window");
+
+const API_URL = "http://172.22.19.248:8000";
+
+// URL DE IMAGEN ÚNICA (Reemplaza el carrusel)
+const IMAGE_URI = 'https://w.wallhaven.cc/full/nz/wallhaven-nzk25y.jpg';
+
+// No se usa SLIDE_INTERVAL ya que no hay carrusel
 
 export default function ProfileScreen() {
   const router = useRouter();
 
+  const [fontsLoaded] = useFonts({
+    PlayfairDisplay_400Regular,
+    PlayfairDisplay_600SemiBold,
+  });
+
+  // --- INICIALIZACIÓN DE ESTADOS Y REFERENCIAS ---
   const [cliente, setCliente] = useState<any>(null);
   const [isLogged, setIsLogged] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
-
+  
+  // Estados de formulario
   const [nombre, setNombre] = useState("");
   const [apellido, setApellido] = useState("");
   const [cedula, setCedula] = useState("");
@@ -31,15 +52,22 @@ export default function ProfileScreen() {
   const [celular, setCelular] = useState("");
   const [sexo, setSexo] = useState("Hombre");
 
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateAnim = useRef(new Animated.Value(30)).current;
+  // Animaciones 
+  const fadeAnim = useRef(new Animated.Value(0)).current; 
+  const translateAnim = useRef(new Animated.Value(40)).current; 
+  // -----------------------------------------------------------
 
+  // El useEffect para el carrusel automático ha sido eliminado.
+
+  // 1. Lógica de Animación Inicial del Contenido
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }).start();
-    Animated.spring(translateAnim, { toValue: 0, speed: 1, bounciness: 10, useNativeDriver: true }).start();
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.spring(translateAnim, { toValue: 0, speed: 1, bounciness: 8, useNativeDriver: true }),
+    ]).start();
   }, []);
 
-  // 🔹 Carga inicial del cliente (busca por email y guarda el ID real)
+  // 2. Lógica de Carga de Datos del Cliente
   useEffect(() => {
     const fetchCliente = async () => {
       try {
@@ -52,7 +80,6 @@ export default function ProfileScreen() {
 
         setIsLogged(true);
         const userData = JSON.parse(storedUser);
-
         const res = await fetch(`${API_URL}/api/clientes/`, {
           headers: { Accept: "application/json" },
         });
@@ -71,11 +98,8 @@ export default function ProfileScreen() {
           setDireccion(data.direccion || "");
           setCelular(data.celular || "");
           setSexo(data.sexo || "Hombre");
-        } else {
-          console.log("⚠️ No se encontró cliente con email:", userData.email);
         }
-      } catch (e) {
-        console.log("⚠️ Error cargando cliente:", e);
+      } catch {
         Alert.alert("Error", "No se pudieron cargar los datos del cliente");
       }
     };
@@ -83,8 +107,8 @@ export default function ProfileScreen() {
     fetchCliente();
   }, []);
 
-  // 🔹 Guardar cambios
-  const handleSave = async () => {
+  // Funciones de manejo
+  const handleSave = async () => { 
     try {
       const access = (await AsyncStorage.getItem("access")) || (await AsyncStorage.getItem("token"));
       const clienteId = await AsyncStorage.getItem("cliente_id");
@@ -104,69 +128,73 @@ export default function ProfileScreen() {
         body: JSON.stringify({ nombre, apellido, cedula, direccion, celular, sexo }),
       });
 
-      if (res.ok) {
-        Alert.alert("Éxito", "Datos actualizados correctamente");
-      } else {
-        const err = await res.json().catch(() => ({} as any));
-        Alert.alert("Error", err?.message || "No se pudo actualizar el cliente");
-      }
+      if (res.ok) Alert.alert("Éxito", "Datos actualizados correctamente");
+      else Alert.alert("Error", "No se pudo actualizar el cliente");
     } catch {
       Alert.alert("Error", "Hubo un problema con la conexión");
     }
   };
 
-  // 🔹 Confirmar cierre de sesión
   const confirmLogout = () => {
-    Alert.alert(
-      "Cerrar sesión",
-      "¿Estás seguro de que deseas cerrar sesión?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Sí, salir",
-          style: "destructive",
-          onPress: async () => {
-            await AsyncStorage.multiRemove(["user", "token", "access", "refresh", "cliente_id"]);
-            router.replace("/(auth)/login");
-          },
+    Alert.alert("Cerrar sesión", "¿Seguro que deseas salir?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Salir",
+        style: "destructive",
+        onPress: async () => {
+          await AsyncStorage.multiRemove(["user", "token", "access", "refresh", "cliente_id"]);
+          router.replace("/(auth)/login");
         },
-      ],
-      { cancelable: true }
-    );
+      },
+    ]);
   };
 
   const handleFacturas = () => router.push("/facturas");
+  const handleManageCards = () => router.push('/carrito/mis-tarjetas'); 
 
-  const getPrimerNombre = (nombreCompleto: string) => {
-    if (!nombreCompleto) return "";
-    const primerNombre = nombreCompleto.split(" ")[0];
-    return primerNombre.charAt(0).toUpperCase() + primerNombre.slice(1).toLowerCase();
-  };
+  // --- Renderización ---
 
-  // 🔹 Si no hay sesión
+  if (!fontsLoaded) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Cargando...</Text>
+      </View>
+    );
+  }
+
+  // 🛑 ESTADO NO LOGUEADO (Imagen estática sin filtro, bloque subido)
   if (!isLogged) {
     return (
       <Animated.View
         style={[styles.notLoggedContainer, { opacity: fadeAnim, transform: [{ translateY: translateAnim }] }]}
       >
-        <Ionicons name="person-circle-outline" size={120} color="#4B5563" />
-        <Text style={styles.welcomeText}>¡Bonjour!</Text>
-        <Text style={styles.infoText}>
-          Inicia sesión para ver tu perfil, tus facturas y tus productos favoritos.
-        </Text>
+        {/* Imagen Estática de Fondo */}
+        <View style={StyleSheet.absoluteFill}>
+          {/* Aquí se ajusta el tamaño de la imagen para simular "alejamiento" */}
+          <Image source={{ uri: IMAGE_URI }} style={styles.staticImage} resizeMode="cover" />
+        </View>
+        
+        {/* Contenido de Botones (Subido) */}
+        <View style={styles.notLoggedContent}>
+          <Text style={styles.infoTextVideo}>
+            Inicia sesión o crea una cuenta para ver tus pedidos, facturas y datos de perfil.
+          </Text>
 
-        <TouchableOpacity style={styles.loginButton} onPress={() => router.replace("/(auth)/login")}>
-          <Ionicons name="log-in-outline" size={20} color="#fff" style={{ marginRight: 6 }} />
-          <Text style={styles.loginText}>Iniciar Sesión</Text>
-        </TouchableOpacity>
+          {/* Botones Compactos con BORDES AFILADOS */}
+          <TouchableOpacity style={styles.primaryButton} onPress={() => router.replace("/(auth)/login")}>
+            <Ionicons name="log-in-outline" size={18} color="#000" style={{ marginRight: 8 }} />
+            <Text style={styles.primaryButtonText}>INICIAR SESIÓN</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.registerButton} onPress={() => router.push("/(auth)/register")}>
-          <Ionicons name="person-add-outline" size={20} color="#1F2937" style={{ marginRight: 6 }} />
-          <Text style={styles.registerText}>Crear Cuenta</Text>
-        </TouchableOpacity>
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => router.push("/(auth)/register")}>
+            <Ionicons name="person-add-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.secondaryButtonText}>CREAR CUENTA</Text>
+          </TouchableOpacity>
+        </View>
       </Animated.View>
     );
   }
+  // ----------------------------------------------------
 
   if (!cliente) {
     return (
@@ -176,35 +204,47 @@ export default function ProfileScreen() {
     );
   }
 
+  // ✅ ESTADO LOGUEADO
   return (
-    <View style={{ flex: 1, backgroundColor: "#F9FAFB" }}>
-      <View style={styles.topButtonsContainer}>
-        <TouchableOpacity style={styles.facturaButton} onPress={handleFacturas}>
-          <Ionicons name="receipt-outline" size={22} color="#fff" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.logoutButton} onPress={confirmLogout}>
-          <Ionicons name="log-out-outline" size={22} color="#fff" />
-        </TouchableOpacity>
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
+      <View style={styles.header}>
+        <Ionicons name="person-circle-outline" size={30} color="#000" />
+        <Text style={styles.titleHeader}>Mi Perfil</Text>
+        <View style={{ width: 30 }} />
       </View>
 
       <KeyboardAwareScrollView
         contentContainerStyle={styles.scrollContainer}
         enableOnAndroid
-        extraScrollHeight={100}
-        keyboardOpeningTime={0}
         showsVerticalScrollIndicator={false}
       >
-        <Ionicons name="person-circle-outline" size={110} color="#6B7280" style={{ marginTop: 120 }} />
-        <Text style={styles.title}>Bonjour {getPrimerNombre(nombre)}</Text>
+        <View style={styles.actionGrid}>
+          <TouchableOpacity style={styles.actionButton} onPress={handleFacturas}>
+            <Ionicons name="receipt-outline" size={20} color="#000" />
+            <Text style={styles.actionText}>Ver Facturas</Text>
+          </TouchableOpacity>
 
-        <TouchableOpacity style={styles.profileButton} onPress={() => setMostrarPerfil(!mostrarPerfil)}>
-          <Text style={styles.profileButtonText}>
-            {mostrarPerfil ? "Ocultar Perfil" : "Ver Mi Perfil"}
+          <TouchableOpacity style={styles.actionButton} onPress={handleManageCards}>
+            <Ionicons name="card-outline" size={20} color="#000" />
+            <Text style={styles.actionText}>Administrar mis tarjetas</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.actionButton} onPress={confirmLogout}>
+            <Ionicons name="log-out-outline" size={20} color="#000" />
+            <Text style={styles.actionText}>Cerrar Sesión</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.divider} />
+
+        <TouchableOpacity style={styles.toggleProfile} onPress={() => setMostrarPerfil(!mostrarPerfil)}>
+          <Text style={styles.toggleProfileText}>
+            {mostrarPerfil ? "Ocultar datos personales" : "Editar mis datos personales"}
           </Text>
+          <Ionicons name={mostrarPerfil ? "chevron-up-outline" : "chevron-down-outline"} size={16} color="#000" />
         </TouchableOpacity>
 
-        {mostrarPerfil ? (
+        {mostrarPerfil && (
           <>
             <TextInput style={styles.inputDisabled} value={cliente.email} editable={false} />
             <TextInput style={styles.input} placeholder="Nombre" value={nombre} onChangeText={setNombre} />
@@ -226,26 +266,29 @@ export default function ProfileScreen() {
             />
             <View style={styles.pickerWrapper}>
               <Picker selectedValue={sexo} onValueChange={(v) => setSexo(v)} style={styles.picker}>
-                <Picker.Item label="Hombre" value="Hombre" />
-                <Picker.Item label="Mujer" value="Mujer" />
+                <Picker.Item label="Hombre" value="Hombre" fontFamily="PlayfairDisplay_400Regular" />
+                <Picker.Item label="Mujer" value="Mujer" fontFamily="PlayfairDisplay_400Regular" />
               </Picker>
             </View>
+
             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-              <Text style={styles.saveText}>Guardar Cambios</Text>
+              <Text style={styles.saveText}>Guardar cambios</Text>
             </TouchableOpacity>
           </>
-        ) : (
+        )}
+
+        {!mostrarPerfil && (
           <>
-            <Text style={styles.stepsTitle}>COMPRA TUS PRODUCTOS FAVORITOS EN 4 PASOS</Text>
+            <Text style={styles.stepsTitle}>Tus beneficios</Text>
             <View style={styles.stepsGrid}>
               {[
-                { icon: "cart-outline", title: "COMPRA", text: "Agrega tus productos al carrito." },
-                { icon: "mail-outline", title: "REVISA", text: "Recibirás un correo cuando esté listo." },
-                { icon: "bag-outline", title: "RETIRA", text: "Ve a tu tienda y recoge tu pedido." },
-                { icon: "help-circle-outline", title: "AYUDA", text: "Nuestro equipo te asistirá." },
+                { icon: "cart-outline", title: "Compra fácil", text: "Explora y agrega tus productos favoritos." },
+                { icon: "mail-outline", title: "Recibe avisos", text: "Te notificamos por correo y app." },
+                { icon: "bag-outline", title: "Recoge o recibe", text: "Selecciona entrega o retiro en tienda." },
+                { icon: "shield-checkmark-outline", title: "Seguridad total", text: "Tu información siempre protegida." },
               ].map((s, i) => (
                 <View key={i} style={styles.stepCard}>
-                  <Ionicons name={s.icon as any} size={38} color="#fff" />
+                  <Ionicons name={s.icon as any} size={30} color="#000" />
                   <Text style={styles.stepTitle}>{s.title}</Text>
                   <Text style={styles.stepText}>{s.text}</Text>
                 </View>
@@ -256,9 +299,9 @@ export default function ProfileScreen() {
 
         <TouchableOpacity
           onPress={() => Linking.openURL("https://www.victoriassecretbeauty.ec/politicas-de-bopis")}
-          style={{ marginTop: 35 }}
+          style={{ marginTop: 30 }}
         >
-          <Text style={styles.politicasLink}>Ver Políticas</Text>
+          <Text style={styles.politicasLink}>Ver políticas de privacidad</Text>
         </TouchableOpacity>
       </KeyboardAwareScrollView>
     </View>
@@ -266,139 +309,243 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  scrollContainer: { padding: 20, alignItems: "center", paddingBottom: 80 },
-  topButtonsContainer: {
-    position: "absolute",
-    top: 50,
-    left: 20,
-    right: 20,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    zIndex: 10,
+  // --- Imagen Estática y No Logueado ---
+  notLoggedContainer: { 
+    flex: 1, 
+    backgroundColor: "#000",
+    width: '100%',
+    height: '100%',
   },
-  notLoggedContainer: {
-    flex: 1,
+  staticImage: {
+    // Aumentamos el tamaño para simular un "alejamiento"
+    width: width * 1.2, 
+    height: height * 1.2,
+    // Centramos la imagen para que el exceso se recorte uniformemente
+    alignSelf: 'center', 
+    position: 'absolute',
+    top: -(height * 0.1), // Ajusta la posición vertical para centrar mejor
+    left: -(width * 0.1), // Ajusta la posición horizontal para centrar mejor
+  },
+  
+  // Contenedor de botones (Compacto, subido y con padding inferior)
+  notLoggedContent: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
     justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 30,
-    backgroundColor: "#F9FAFB",
+    paddingBottom: 90, 
+    paddingTop: 20, 
+    // Fondo semitransparente oscuro para asegurar la legibilidad del texto
+    backgroundColor: 'rgba(0, 0, 0, 0.65)', 
+    zIndex: 5,
   },
-  welcomeText: { fontSize: 28, fontWeight: "700", color: "#000000ff", marginTop: 10 },
-  infoText: { fontSize: 16, color: "#000000ff", textAlign: "center", marginVertical: 15, lineHeight: 22 },
-  loginButton: {
+  // Texto más pequeño
+  infoTextVideo: { 
+    fontSize: 13, 
+    color: "#fff", 
+    textAlign: "center", 
+    marginBottom: 20, 
+    lineHeight: 18,
+    fontFamily: "PlayfairDisplay_400Regular", 
+  },
+  // Botón primario
+  primaryButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#111827",
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 10,
+    backgroundColor: "#fff",
+    paddingVertical: 10, 
+    paddingHorizontal: 25, 
+    borderRadius: 0, 
+    width: '100%', 
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  // Texto de botón
+  primaryButtonText: { 
+    color: "#000", 
+    fontSize: 14, 
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    letterSpacing: 1.2,
+  },
+  // Botón secundario
+  secondaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "transparent",
+    borderWidth: 2, 
+    borderColor: "#fff",
+    paddingVertical: 10, 
+    paddingHorizontal: 25, 
+    borderRadius: 0, 
+    width: '100%', 
+    justifyContent: 'center',
     marginTop: 10,
   },
-  loginText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  registerButton: {
+  // Texto de botón
+  secondaryButtonText: { 
+    color: "#fff", 
+    fontSize: 14, 
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    letterSpacing: 1.2,
+  },
+
+  // --- Estilos Logueado (Mantenidos) ---
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 50, 
+    paddingBottom: 12,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  titleHeader: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#000",
+  },
+  scrollContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 100,
+  },
+  actionGrid: {
+    marginTop: 15,
+    marginBottom: 5,
+    paddingHorizontal: 10,
+  },
+  actionButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#E5E7EB",
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 10,
-    marginTop: 12,
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f5f5f5",
   },
-  registerText: { color: "#1F2937", fontSize: 16, fontWeight: "bold" },
-  title: { fontSize: 26, fontWeight: "700", color: "#1F2937", marginTop: 10, marginBottom: 20 },
-  profileButton: {
-    backgroundColor: "#D1D5DB",
-    paddingVertical: 8,
-    paddingHorizontal: 20,
+  actionText: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 15,
+    color: "#000",
+    marginLeft: 15,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: "#eee",
+    marginVertical: 8,
+  },
+  toggleProfile: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: "#d1d1d1",
     borderRadius: 8,
-    marginBottom: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginVertical: 12,
   },
-  profileButtonText: { fontSize: 16, fontWeight: "bold", color: "#000000ff" },
+  toggleProfileText: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    color: "#000",
+    fontSize: 14,
+  },
   input: {
     backgroundColor: "#fff",
     width: "100%",
-    padding: 14,
-    borderRadius: 10,
-    marginVertical: 6,
-    fontSize: 16,
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 5,
+    fontSize: 15,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
+    borderColor: "#d1d1d1",
+    fontFamily: "PlayfairDisplay_400Regular",
   },
   inputDisabled: {
-    backgroundColor: "#E5E7EB",
+    backgroundColor: "#f0f0f0",
     width: "100%",
-    padding: 14,
-    borderRadius: 10,
-    marginVertical: 6,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
+    padding: 12,
+    borderRadius: 8,
+    marginVertical: 5,
+    fontSize: 15,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "#555",
   },
   pickerWrapper: {
     backgroundColor: "#fff",
     width: "100%",
-    borderRadius: 10,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#D1D5DB",
-    marginVertical: 6,
+    borderColor: "#d1d1d1",
+    marginVertical: 5,
+    justifyContent: 'center',
   },
-  picker: { width: "100%" },
+  picker: { width: "100%", height: 48 },
   saveButton: {
-    backgroundColor: "#111827",
-    paddingVertical: 14,
-    borderRadius: 10,
+    backgroundColor: "#000",
+    paddingVertical: 12,
+    borderRadius: 8,
     width: "100%",
     alignItems: "center",
     marginTop: 15,
   },
-  saveText: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  facturaButton: {
-    width: 45,
-    height: 45,
-    backgroundColor: "#6B7280",
-    borderRadius: 50,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  logoutButton: {
-    width: 45,
-    height: 45,
-    backgroundColor: "#DC2626",
-    borderRadius: 50,
-    justifyContent: "center",
-    alignItems: "center",
+  saveText: { 
+    color: "#fff", 
+    fontSize: 15, 
+    fontFamily: "PlayfairDisplay_600SemiBold",
   },
   stepsTitle: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#000000ff",
-    textAlign: "center",
-    marginVertical: 10,
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#000",
+    textAlign: "left",
+    marginVertical: 15,
+    paddingLeft: 0,
+    width: '100%'
   },
   stepsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 15,
-    marginTop: 10,
+    justifyContent: "space-between",
+    gap: 10,
   },
   stepCard: {
-    width: 160,
-    height: 160,
-    borderRadius: 20,
-    backgroundColor: "#000000ff",
+    width: '48%',
+    minHeight: 150,
+    borderRadius: 8,
+    backgroundColor: "#fafafa",
     justifyContent: "center",
     alignItems: "center",
-    padding: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: "#ededed",
+    marginBottom: 10,
   },
-  stepTitle: { fontWeight: "bold", marginTop: 6, color: "#fff" },
-  stepText: { fontSize: 13, textAlign: "center", marginTop: 3, color: "#E5E7EB" },
+  stepTitle: { 
+    fontFamily: "PlayfairDisplay_600SemiBold", 
+    marginTop: 6, 
+    color: "#000", 
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  stepText: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 12,
+    textAlign: "center",
+    marginTop: 3,
+    color: "#444",
+  },
   politicasLink: {
-    fontSize: 15,
-    fontWeight: "bold",
-    color: "#111827",
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 14,
+    color: "#000",
     textDecorationLine: "underline",
   },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#F9FAFB" },
-  loadingText: { fontSize: 18, fontWeight: "600", color: "#000000ff" },
+  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
+  loadingText: { 
+    fontSize: 16, 
+    fontFamily: "PlayfairDisplay_600SemiBold", 
+    color: "#000" 
+  },
 });

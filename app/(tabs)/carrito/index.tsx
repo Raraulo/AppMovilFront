@@ -1,46 +1,64 @@
+import {
+  PlayfairDisplay_400Regular,
+  PlayfairDisplay_600SemiBold,
+  useFonts,
+} from "@expo-google-fonts/playfair-display";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
-    ActivityIndicator,
-    Alert,
-    Image,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Animated,
+  Dimensions,
+  Easing,
+  FlatList,
+  Image,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
-import { WebView } from "react-native-webview";
 import {
-    clearCart,
-    getCart,
-    removeFromCart,
-    updateCartQuantity,
+  clearCart,
+  getCart,
+  removeFromCart,
+  storageEvents,
+  updateCartQuantity,
 } from "../../../utils/storage";
+
+const { width } = Dimensions.get("window");
+
+type PaymentMethod = 'credit_card' | 'my_cards';
 
 export default function CarritoScreen() {
   const router = useRouter();
+  const [fontsLoaded] = useFonts({
+    PlayfairDisplay_400Regular,
+    PlayfairDisplay_600SemiBold,
+  });
 
   const [cart, setCart] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showPayPal, setShowPayPal] = useState(false);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [isLogged, setIsLogged] = useState(false);
   const [showResumen, setShowResumen] = useState(false);
   const [orderNumber, setOrderNumber] = useState("");
+  const [modalVisible, setModalVisible] = useState(false);
 
-  // Campos del formulario
-  const [nombre, setNombre] = useState("");
-  const [apellido, setApellido] = useState("");
-  const [ciudad, setCiudad] = useState("");
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+
   const [numeroTarjeta, setNumeroTarjeta] = useState("");
+  const [fechaCaducidad, setFechaCaducidad] = useState("");
   const [cvv, setCvv] = useState("");
+
+  const slideAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     checkLogin();
@@ -52,6 +70,16 @@ export default function CarritoScreen() {
       setCart([]);
       setLoading(false);
     }
+  }, [isLogged]);
+
+  useEffect(() => {
+    const handleCartChange = () => {
+      if (isLogged) loadCart();
+    };
+    storageEvents.on("cartChanged", handleCartChange);
+    return () => {
+      storageEvents.off("cartChanged", handleCartChange);
+    };
   }, [isLogged]);
 
   const checkLogin = async () => {
@@ -67,7 +95,12 @@ export default function CarritoScreen() {
   };
 
   const calcularTotal = () =>
-    cart.reduce((acc, item) => acc + (item.precio || 0) * (item.cantidad || 1), 0).toFixed(2);
+    cart
+      .reduce(
+        (acc, item) => acc + (Number(item.precio) || 0) * (item.cantidad || 1),
+        0
+      )
+      .toFixed(2);
 
   const aumentarCantidad = async (id: number) => {
     const item = cart.find((i) => i.id === id);
@@ -92,7 +125,7 @@ export default function CarritoScreen() {
   const confirmarEliminar = (id: number) => {
     Alert.alert(
       "Eliminar producto",
-      "¿Estás seguro de eliminar este producto del carrito?",
+      "¿Estás seguro de eliminar este producto del cesto?",
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -107,36 +140,53 @@ export default function CarritoScreen() {
     );
   };
 
-  const vaciarCarrito = () => {
-    Alert.alert("Vaciar carrito", "¿Deseas eliminar todos los productos?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Vaciar",
-        style: "destructive",
-        onPress: async () => {
-          await clearCart();
-          loadCart();
-        },
-      },
-    ]);
+  const validarFormulario = (): string | null => {
+    if (selectedPaymentMethod === 'credit_card') {
+      const onlyDigits = (s: string) => /^\d+$/.test(s);
+
+      if (!numeroTarjeta || numeroTarjeta.replace(/\s/g, '').length !== 16 || !onlyDigits(numeroTarjeta.replace(/\s/g, '')))
+        return "Número de tarjeta inválido (16 dígitos).";
+
+      if (!fechaCaducidad || fechaCaducidad.length !== 5 || fechaCaducidad[2] !== '/')
+        return "Fecha de caducidad inválida (MM/AA).";
+
+      if (!cvv || !onlyDigits(cvv) || cvv.length !== 3)
+        return "CVV inválido (3 dígitos).";
+
+    } else if (selectedPaymentMethod === 'my_cards') {
+      return null;
+    } else {
+      return "Por favor, selecciona una forma de pago.";
+    }
+
+    return null;
   };
 
-  const validarFormulario = (): string | null => {
-    if (!nombre.trim()) return "Ingresa el nombre.";
-    if (!apellido.trim()) return "Ingresa el apellido.";
-    if (!ciudad.trim()) return "Ingresa la ciudad.";
-    const onlyDigits = (s: string) => /^\d+$/.test(s);
-    if (!numeroTarjeta || !onlyDigits(numeroTarjeta) || numeroTarjeta.length !== 14)
-      return "Número de tarjeta inválido (14 dígitos).";
-    if (!cvv || !onlyDigits(cvv) || cvv.length !== 3)
-      return "CVV inválido (3 dígitos).";
-    return null;
+  const formatCardNumber = (text: string) => {
+    const digits = text.replace(/\D/g, '');
+    let formatted = '';
+    for (let i = 0; i < digits.length; i++) {
+      if (i > 0 && i % 4 === 0) {
+        formatted += ' ';
+      }
+      formatted += digits[i];
+    }
+    setNumeroTarjeta(formatted);
+  };
+
+  const formatExpiryDate = (text: string) => {
+    const digits = text.replace(/\D/g, '');
+    let formatted = digits;
+    if (digits.length > 2) {
+      formatted = digits.substring(0, 2) + '/' + digits.substring(2, 4);
+    }
+    setFechaCaducidad(formatted);
   };
 
   const handleSimulatedPayment = async () => {
     const error = validarFormulario();
     if (error) {
-      Alert.alert("Error", error);
+      Alert.alert("Error de Pago", error);
       return;
     }
 
@@ -146,89 +196,96 @@ export default function CarritoScreen() {
       setOrderNumber(newOrderNumber);
       setProcessing(false);
       await clearCart();
-      setShowPaymentForm(false);
+      setModalVisible(false);
       await loadCart();
-      setNombre("");
-      setApellido("");
-      setCiudad("");
       setNumeroTarjeta("");
+      setFechaCaducidad("");
       setCvv("");
+      setSelectedPaymentMethod(null);
       setShowResumen(true);
     }, 2000);
   };
 
-  if (loading) {
+  const openModal = () => {
+    setModalVisible(true);
+    Animated.timing(slideAnim, {
+      toValue: 1,
+      duration: 350,
+      easing: Easing.out(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const closeModal = () => {
+    Animated.timing(slideAnim, {
+      toValue: 0,
+      duration: 300,
+      easing: Easing.in(Easing.ease),
+      useNativeDriver: true,
+    }).start(() => {
+      setModalVisible(false);
+      setSelectedPaymentMethod(null);
+    });
+  };
+
+  const translateY = slideAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [500, 0],
+  });
+
+  const renderCartItem = ({ item }: { item: any }) => {
+    const price = Number(item.precio) || 0;
+    const quantity = item.cantidad || 1;
+    const totalItemPrice = (price * quantity).toFixed(2);
+
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#121212" />
-      </View>
-    );
-  }
+      <View style={styles.cardContainer}>
+        <View style={styles.card}>
+          <Image
+            source={{
+              uri:
+                item.url_imagen ||
+                "https://via.placeholder.com/150/cccccc/000000?text=Perfume",
+            }}
+            style={styles.image}
+            resizeMode="cover"
+          />
+          
+          <View style={styles.infoBox}>
+            <Text style={styles.cardName}>{item.nombre}</Text>
+            <Text style={styles.cardBrand}>
+              {item.marca_nombre || "Maison Parfum"}
+            </Text>
+            
+            <Text style={styles.totalItemText}>Total: ${totalItemPrice}</Text>
 
-  if (!isLogged) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={26} color="#121212" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Carrito</Text>
-          <View style={{ width: 26 }} />
-        </View>
-
-        <Text style={styles.emptyText}>
-          Debes iniciar sesión para ver el carrito.
-        </Text>
-
-        <TouchableOpacity
-          style={[styles.paypalButton, { marginHorizontal: 60 }]}
-          onPress={() => router.replace("/(auth)/login")}
-        >
-          <Text style={styles.paypalText}>Iniciar sesión</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  if (showPayPal) {
-    return (
-      <WebView
-        source={{ uri: "https://www.sandbox.paypal.com/signin" }}
-        style={{ flex: 1 }}
-        startInLoadingState
-        renderLoading={() => (
-          <ActivityIndicator style={{ marginTop: 40 }} size="large" color="#121212" />
-        )}
-      />
-    );
-  }
-
-  if (showResumen) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={26} color="#121212" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Pedido confirmado</Text>
-          <View style={{ width: 26 }} />
-        </View>
-
-        <View style={styles.summaryContainer}>
-          <Text style={styles.summaryTitle}>Gracias por tu compra</Text>
-          <Text style={styles.summaryText}>Número de pedido: {orderNumber}</Text>
-          <Text style={styles.summaryText}>Total pagado: ${calcularTotal()}</Text>
+            <View style={styles.quantityContainer}>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => disminuirCantidad(item.id)}
+              >
+                <Ionicons name="remove" size={18} color="#121212" />
+              </TouchableOpacity>
+              <Text style={styles.quantity}>{quantity}</Text>
+              <TouchableOpacity
+                style={styles.quantityButton}
+                onPress={() => aumentarCantidad(item.id)}
+              >
+                <Ionicons name="add" size={18} color="#121212" />
+              </TouchableOpacity>
+            </View>
+          </View>
 
           <TouchableOpacity
-            style={styles.confirmButton}
-            onPress={() => setShowResumen(false)}
+            style={styles.deleteButton}
+            onPress={() => confirmarEliminar(item.id)}
           >
-            <Text style={styles.confirmText}>Volver al carrito</Text>
+            <Ionicons name="trash-outline" size={24} color="#FF4B5C" />
           </TouchableOpacity>
         </View>
       </View>
     );
-  }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -236,157 +293,173 @@ export default function CarritoScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 80}
     >
-      <ScrollView
-        style={{ backgroundColor: "#fff" }}
-        contentContainerStyle={{ paddingBottom: 100 }}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={{ flex: 1, backgroundColor: "#fff" }}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={26} color="#121212" />
+            <Ionicons name="arrow-back" size={24} color="#121212" />
           </TouchableOpacity>
-          <Text style={styles.title}>Carrito</Text>
-          <View style={{ width: 26 }} />
+          <Text style={styles.title}>Cesta</Text>
+          <View style={{ width: 24 }} />
         </View>
 
-        {cart.length === 0 ? (
-          <Text style={styles.emptyText}>Tu carrito está vacío.</Text>
+        {!isLogged ? (
+          <View style={styles.messageContainer}>
+            <Text style={styles.largeMessage}>
+              Inicia sesión para poder ver y gestionar tu cesta.
+            </Text>
+          </View>
+        ) : loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#111" />
+          </View>
+        ) : cart.length === 0 ? (
+          <View style={styles.messageContainer}>
+            <Text style={styles.largeMessage}>
+                Tu cesta está vacía.
+            </Text>
+          </View>
         ) : (
-          <>
-            {cart.map((item) => (
-              <View key={item.id} style={styles.card}>
-                <Image
-                  source={{
-                    uri:
-                      item.url_imagen ||
-                      item.imagen ||
-                      "https://via.placeholder.com/150/cccccc/000000?text=Perfume",
-                  }}
-                  style={styles.image}
-                />
-                <View style={styles.info}>
-                  <Text style={styles.name}>{item.nombre}</Text>
-                  <Text style={styles.price}>${item.precio}</Text>
+          <FlatList
+            key="cart-horizontal-list"
+            data={cart}
+            renderItem={renderCartItem}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={styles.listContainer}
+            style={styles.cardsList}
+          />
+        )}
+      </View>
 
-                  <View style={styles.quantityContainer}>
-                    <TouchableOpacity
-                      style={styles.quantityButton}
-                      onPress={() => disminuirCantidad(item.id)}
-                    >
-                      <Ionicons name="remove" size={18} color="#121212" />
-                    </TouchableOpacity>
-                    <Text style={styles.quantity}>{item.cantidad || 1}</Text>
-                    <TouchableOpacity
-                      style={styles.quantityButton}
-                      onPress={() => aumentarCantidad(item.id)}
-                    >
-                      <Ionicons name="add" size={18} color="#121212" />
-                    </TouchableOpacity>
-                  </View>
+      {isLogged && cart.length > 0 && (
+        <View style={styles.footerFixed}>
+          <View style={styles.totalRow}>
+            <Text style={styles.totalLabel}>Total:</Text>
+            <Text style={styles.totalPrice}>${calcularTotal()}</Text>
+          </View>
+          <TouchableOpacity style={styles.mainButton} onPress={openModal}>
+            <Text style={styles.mainButtonText}>Proceder con la compra</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
-                  <TouchableOpacity
-                    style={styles.removeButton}
-                    onPress={() => confirmarEliminar(item.id)}
-                  >
-                    <Ionicons name="trash-outline" size={18} color="#FF4B5C" />
-                    <Text style={styles.removeText}>Eliminar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
-
-            <View style={styles.footer}>
-              <Text style={styles.totalText}>Total: ${calcularTotal()}</Text>
-
-              <TouchableOpacity
-                style={styles.paypalButton}
-                onPress={() => setShowPayPal(true)}
-              >
-                <Image
-                  source={{
-                    uri: "https://www.paypalobjects.com/webstatic/icon/pp258.png",
-                  }}
-                  style={{ width: 22, height: 22, marginRight: 6 }}
-                />
-                <Text style={styles.paypalText}>Pagar con PayPal</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.paypalButton, { backgroundColor: "#121212" }]}
-                onPress={() => setShowPaymentForm((s) => !s)}
-              >
-                <Text style={[styles.paypalText, { color: "#fff" }]}>
-                  {showPaymentForm ? "Cerrar formulario" : "Ir a pagar (tarjeta)"}
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.clearButton} onPress={vaciarCarrito}>
-                <Text style={styles.clearText}>Vaciar carrito</Text>
+      <Modal transparent visible={modalVisible} animationType="none">
+        <View style={styles.modalOverlay}>
+          <Animated.View
+            style={[
+              styles.modalContent,
+              { transform: [{ translateY }] },
+            ]}
+          >
+            <View style={styles.modalHeader}>
+              <Text style={styles.formTitle}>Forma de pago</Text>
+              <TouchableOpacity onPress={closeModal}>
+                <Ionicons name="close" size={24} color="#111" />
               </TouchableOpacity>
             </View>
 
-            {showPaymentForm && (
-              <View style={styles.paymentForm}>
-                <Text style={styles.formTitle}>Formulario de pago</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.paymentOptionContainer}>
+                <TouchableOpacity
+                  style={styles.paymentOption}
+                  onPress={() => setSelectedPaymentMethod('credit_card')}
+                >
+                  <Ionicons
+                    name={selectedPaymentMethod === 'credit_card' ? 'radio-button-on' : 'radio-button-off'}
+                    size={20}
+                    color={selectedPaymentMethod === 'credit_card' ? '#000' : '#666'}
+                  />
+                  <Text style={styles.paymentText}>Tarjeta de crédito o débito</Text>
+                </TouchableOpacity>
 
-                <TextInput
-                  placeholder="Nombre"
-                  placeholderTextColor="#888"
-                  style={styles.input}
-                  value={nombre}
-                  onChangeText={setNombre}
-                />
-                <TextInput
-                  placeholder="Apellido"
-                  placeholderTextColor="#888"
-                  style={styles.input}
-                  value={apellido}
-                  onChangeText={setApellido}
-                />
-                <TextInput
-                  placeholder="Ciudad"
-                  placeholderTextColor="#888"
-                  style={styles.input}
-                  value={ciudad}
-                  onChangeText={setCiudad}
-                />
-                <TextInput
-                  placeholder="Número de tarjeta (14 dígitos)"
-                  placeholderTextColor="#888"
-                  style={styles.input}
-                  value={numeroTarjeta}
-                  onChangeText={(t) => setNumeroTarjeta(t.replace(/\D/g, ""))}
-                  keyboardType="number-pad"
-                  maxLength={14}
-                />
-                <TextInput
-                  placeholder="CVV (3 dígitos)"
-                  placeholderTextColor="#888"
-                  style={styles.input}
-                  value={cvv}
-                  onChangeText={(t) => setCvv(t.replace(/\D/g, ""))}
-                  keyboardType="number-pad"
-                  maxLength={3}
-                />
+                <View style={styles.cardIcons}>
+                  <Image source={{ uri: 'https://cdn.icon-icons.com/icons2/2855/PNG/512/visa_card_icon_181183.png' }} style={styles.cardIcon} />
+                  <Image source={{ uri: 'https://cdn.icon-icons.com/icons2/2855/PNG/512/mastercard_card_icon_181180.png' }} style={styles.cardIcon} />
+                  <Image source={{ uri: 'https://cdn.icon-icons.com/icons2/2855/PNG/512/american_express_card_icon_181177.png' }} style={styles.cardIcon} />
+                  <Image source={{ uri: 'https://cdn.icon-icons.com/icons2/2855/PNG/512/diners_club_card_icon_181179.png' }} style={styles.cardIcon} />
+                </View>
+
+                {selectedPaymentMethod === 'credit_card' && (
+                  <View style={styles.cardFormContainer}>
+                    <View style={styles.cardLockContainer}>
+                      <Text style={styles.cardNumberLabel}>Número de tarjeta</Text>
+                      <Ionicons name="lock-closed-outline" size={18} color="#999" />
+                    </View>
+                    <View style={styles.inputGroup}>
+                      <TextInput
+                        placeholder="0000 0000 0000 0000"
+                        placeholderTextColor="#aaa"
+                        style={styles.inputCard}
+                        value={numeroTarjeta}
+                        onChangeText={formatCardNumber}
+                        keyboardType="number-pad"
+                        maxLength={19}
+                      />
+                      <Ionicons name="card-outline" size={24} color="#ccc" style={styles.inputIcon} />
+                    </View>
+
+                    <View style={styles.splitInputRow}>
+                      <View style={[styles.inputGroup, styles.splitInput]}>
+                        <Text style={styles.cardNumberLabel}>Fecha de caducidad</Text>
+                        <TextInput
+                          placeholder="MM/AA"
+                          placeholderTextColor="#aaa"
+                          style={styles.input}
+                          value={fechaCaducidad}
+                          onChangeText={formatExpiryDate}
+                          keyboardType="number-pad"
+                          maxLength={5}
+                        />
+                      </View>
+                      <View style={[styles.inputGroup, styles.splitInput]}>
+                        <Text style={styles.cardNumberLabel}>Código de seguridad</Text>
+                        <TextInput
+                          placeholder="?"
+                          placeholderTextColor="#aaa"
+                          style={styles.input}
+                          value={cvv}
+                          onChangeText={(t) => setCvv(t.replace(/\D/g, ""))}
+                          keyboardType="number-pad"
+                          maxLength={3}
+                          secureTextEntry
+                        />
+                        <Ionicons name="help-circle-outline" size={20} color="#999" style={styles.inputIconQuestion} />
+                      </View>
+                    </View>
+                  </View>
+                )}
+
+                <View style={styles.paymentDivider} />
 
                 <TouchableOpacity
-                  style={styles.confirmButton}
-                  onPress={handleSimulatedPayment}
-                  disabled={processing}
+                  style={styles.paymentOption}
+                  onPress={() => router.push('/(tabs)/carrito/mis-tarjetas')}
                 >
-                  {processing ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.confirmText}>
-                      Pagar ${calcularTotal()}
-                    </Text>
-                  )}
+                  <Ionicons
+                    name={selectedPaymentMethod === 'my_cards' ? 'radio-button-on' : 'radio-button-off'}
+                    size={20}
+                    color={'#666'}
+                  />
+                  <Text style={styles.paymentText}>Mis tarjetas</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </>
-        )}
-      </ScrollView>
+
+              <TouchableOpacity
+                style={styles.confirmButton}
+                onPress={handleSimulatedPayment}
+                disabled={processing || !selectedPaymentMethod}
+              >
+                {processing ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.confirmText}>
+                    Pagar ${calcularTotal()}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -396,92 +469,262 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   header: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 50,
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 10,
+    marginBottom: 10,
   },
-  title: { fontSize: 20, fontWeight: "bold", color: "#121212" },
-  emptyText: { textAlign: "center", marginTop: 40, color: "#777", fontSize: 16 },
-  card: {
-    flexDirection: "row",
-    backgroundColor: "#f8f8f8",
-    borderRadius: 10,
-    marginHorizontal: 20,
+  title: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#111",
+  },
+  messageContainer: {
+    paddingHorizontal: 20,
+    marginTop: 40,
+    alignItems: 'flex-start',
+  },
+  largeMessage: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 28,
+    color: "#111",
+    marginBottom: 10,
+    textAlign: 'left',
+  },
+  listContainer: {
+    paddingBottom: 200,
+    paddingHorizontal: 20,
+  },
+  cardsList: {
+    marginTop: 15,
+  },
+  cardContainer: {
+    width: '100%',
     marginBottom: 15,
-    padding: 10,
   },
-  image: { width: 80, height: 80, borderRadius: 8 },
-  info: { flex: 1, marginLeft: 10 },
-  name: { fontSize: 14, fontWeight: "600", color: "#121212" },
-  price: { fontSize: 13, color: "#555" },
-  quantityContainer: { flexDirection: "row", alignItems: "center", marginTop: 6 },
-  quantityButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  card: {
+    flexDirection: 'row',
+    backgroundColor: "#ffffffff",
+    borderColor: "#e0e0e0",
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    alignItems: 'center',
+  },
+  image: { 
+    width: 80, 
+    height: 100, 
+    backgroundColor: "#f9f9f9", 
+    borderRadius: 8,
+  },
+  infoBox: { 
+    flex: 1, 
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  cardName: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 16,
+    color: "#111",
+    marginBottom: 3,
+  },
+  cardBrand: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 12,
+    color: "#666",
+    marginBottom: 6,
+  },
+  totalItemText: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 16,
+    color: "#FF4B5C",
+    marginBottom: 8,
+  },
+  quantityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 5,
     borderWidth: 1,
     borderColor: "#ddd",
-    borderRadius: 6,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
   },
-  quantity: { marginHorizontal: 10, fontSize: 14, fontWeight: "bold" },
-  removeButton: { flexDirection: "row", alignItems: "center", marginTop: 5 },
-  removeText: { color: "#FF4B5C", marginLeft: 5, fontSize: 13 },
-  footer: {
+  quantityButton: {
+    paddingHorizontal: 8,
+  },
+  quantity: {
+    marginHorizontal: 12,
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 14,
+    color: "#111",
+  },
+  deleteButton: {
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  footerFixed: {
+    position: 'absolute',
+    bottom: 60,
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
     borderTopWidth: 1,
     borderColor: "#eee",
     paddingTop: 15,
     paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
   },
-  totalText: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#121212",
-    textAlign: "right",
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
-  paypalButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#0070BA",
-    paddingVertical: 10,
+  totalLabel: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#000",
+  },
+  totalPrice: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 18,
+    color: "#000",
+  },
+  mainButton: {
+    backgroundColor: "#121212",
+    paddingVertical: 14,
     borderRadius: 8,
-    marginBottom: 8,
+    alignItems: "center",
   },
-  paypalText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  clearButton: { alignItems: "center", paddingVertical: 6 },
-  clearText: { color: "#FF4B5C", fontSize: 14, fontWeight: "600" },
-  paymentForm: {
-    marginHorizontal: 20,
-    marginTop: 10,
-    padding: 14,
-    backgroundColor: "#fafafa",
-    borderRadius: 10,
+  mainButtonText: {
+    color: "#fff",
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 14,
+  },
+  confirmButton: {
+    backgroundColor: "#10B981",
+    paddingVertical: 14,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  confirmText: {
+    color: "#fff",
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    height: "70%",
+    width: "100%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  formTitle: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 20,
+    color: "#111",
+  },
+  paymentOptionContainer: {
     borderWidth: 1,
-    borderColor: "#eee",
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 15,
   },
-  formTitle: { fontSize: 16, fontWeight: "700", marginBottom: 10 },
+  paymentOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  paymentText: {
+    fontFamily: "PlayfairDisplay_400Regular",
+    fontSize: 16,
+    marginLeft: 10,
+    color: '#111',
+  },
+  paymentDivider: {
+    height: 1,
+    backgroundColor: '#eee',
+    marginVertical: 10,
+  },
+  cardIcons: {
+    flexDirection: 'row',
+    marginLeft: 30,
+    marginBottom: 10,
+  },
+  cardIcon: {
+    width: 30,
+    height: 20,
+    resizeMode: 'contain',
+    marginRight: 5,
+  },
+  cardFormContainer: {
+    marginTop: 5,
+    paddingTop: 10,
+  },
+  cardLockContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 5,
+  },
+  cardNumberLabel: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 14,
+    color: '#111',
+  },
+  inputGroup: { marginBottom: 15, position: 'relative' },
   input: {
     backgroundColor: "#fff",
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#e6e6e6",
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 10,
+    borderColor: "#ddd",
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+    fontFamily: "PlayfairDisplay_400Regular",
     color: "#121212",
   },
-  confirmButton: {
-    backgroundColor: "#10B981",
-    paddingVertical: 12,
+  inputCard: {
+    backgroundColor: "#fff",
     borderRadius: 8,
-    alignItems: "center",
-    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    paddingHorizontal: 15,
+    paddingLeft: 45,
+    paddingVertical: 12,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "#121212",
   },
-  confirmText: { color: "#fff", fontSize: 16, fontWeight: "700" },
-  summaryContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
-  summaryTitle: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
-  summaryText: { fontSize: 16, color: "#333", marginBottom: 8 },
+  splitInputRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  splitInput: {
+    width: '48%',
+  },
+  inputIcon: {
+    position: 'absolute',
+    left: 10,
+    top: 15,
+  },
+  inputIconQuestion: {
+    position: 'absolute',
+    right: 15,
+    top: 35,
+  },
 });

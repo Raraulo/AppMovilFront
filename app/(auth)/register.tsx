@@ -14,7 +14,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  View,
 } from "react-native";
 import { API_URL } from "../../config";
 
@@ -27,6 +28,8 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -51,8 +54,8 @@ export default function RegisterScreen() {
 
   // --- Funciones principales ---
   const handleSendCode = async () => {
-    if (!email) return alert("❌ Ingresa un correo válido");
-    if (!acceptedTerms) return alert("❌ Debes aceptar los términos y condiciones");
+    if (!email) return alert(" Ingresa un correo válido");
+    if (!acceptedTerms) return alert(" Debes aceptar los términos y condiciones");
 
     try {
       const res = await fetch(`${API_URL}/api/auth/send-code`, {
@@ -63,11 +66,11 @@ export default function RegisterScreen() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("✅ Código enviado al correo");
+        alert("Código enviado al correo");
         setStep(2);
       } else alert(data.message || "Error al enviar código");
     } catch {
-      alert("⚠️ Error de conexión");
+      alert("Error de conexión");
     }
   };
 
@@ -81,17 +84,17 @@ export default function RegisterScreen() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("✅ Código válido");
+        alert("Código válido");
         setStep(3);
       } else alert(data.message || "Código incorrecto");
     } catch {
-      alert("⚠️ Error de conexión");
+      alert(" Error de conexión");
     }
   };
 
   const handleCreateAccount = async () => {
     if (password !== confirmPassword)
-      return alert("❌ Las contraseñas no coinciden");
+      return alert(" Las contraseñas no coinciden");
 
     try {
       const res = await fetch(`${API_URL}/api/auth/create-cliente`, {
@@ -112,7 +115,7 @@ export default function RegisterScreen() {
       const data = await res.json();
 
       if (res.ok) {
-        alert("✅ Cuenta creada con éxito");
+        alert("Cuenta creada con éxito");
 
         if (data.token && data.user) {
           await AsyncStorage.setItem("token", data.token);
@@ -125,7 +128,7 @@ export default function RegisterScreen() {
         alert(data.message || "Error al crear cuenta");
       }
     } catch {
-      alert("⚠️ Error de conexión");
+      alert("Error de conexión");
     }
   };
 
@@ -224,24 +227,56 @@ export default function RegisterScreen() {
             {step === 3 && (
               <>
                 <Text style={styles.title}>Crear Contraseña</Text>
-                <TextInput
-                  placeholder="Contraseña"
-                  placeholderTextColor="#aaa"
-                  style={styles.input}
-                  secureTextEntry
-                  value={password}
-                  onChangeText={setPassword}
-                  returnKeyType="next"
-                />
-                <TextInput
-                  placeholder="Confirmar contraseña"
-                  placeholderTextColor="#aaa"
-                  style={styles.input}
-                  secureTextEntry
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  returnKeyType="done"
-                />
+
+                {/* Campo contraseña con ojo */}
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    placeholder="Contraseña"
+                    placeholderTextColor="#aaa"
+                    style={[styles.input, { flex: 1, paddingRight: 45 }]}
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={setPassword}
+                    returnKeyType="next"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={22}
+                      color="#4A4A4A"
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Confirmar contraseña con ojo */}
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    placeholder="Confirmar contraseña"
+                    placeholderTextColor="#aaa"
+                    style={[styles.input, { flex: 1, paddingRight: 45 }]}
+                    secureTextEntry={!showConfirmPassword}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    returnKeyType="done"
+                  />
+                  <TouchableOpacity
+                    onPress={() =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }
+                    style={styles.eyeIcon}
+                  >
+                    <Ionicons
+                      name={
+                        showConfirmPassword ? "eye-off-outline" : "eye-outline"
+                      }
+                      size={22}
+                      color="#4A4A4A"
+                    />
+                  </TouchableOpacity>
+                </View>
 
                 <TouchableOpacity
                   style={[styles.button, { backgroundColor: "#121212" }]}
@@ -252,7 +287,7 @@ export default function RegisterScreen() {
               </>
             )}
 
-            {/* Back button */}
+            {/* Botón volver */}
             <TouchableOpacity
               style={{ marginTop: 20 }}
               onPress={() => (step === 1 ? router.back() : setStep(step - 1))}
@@ -273,7 +308,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     paddingVertical: 20,
-    paddingBottom: 80, // 👈 Espacio extra para teclado
+    paddingBottom: 100,
   },
   innerContainer: { width: "100%", paddingHorizontal: 30, alignItems: "center" },
   logo: { width: 220, height: 220, marginBottom: 20 },
@@ -287,6 +322,18 @@ const styles = StyleSheet.create({
     marginVertical: 10,
     fontSize: 16,
     color: "#121212",
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    width: "100%",
+    marginVertical: 10,
+    position: "relative",
+  },
+  eyeIcon: {
+    position: "absolute",
+    right: 15,
+    padding: 5,
   },
   checkboxContainer: {
     flexDirection: "row",
