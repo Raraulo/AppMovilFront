@@ -43,21 +43,20 @@ import {
 
 const { width, height } = Dimensions.get("window");
 
-// ==================== PALETA DE COLORES PREMIUM ====================
 const CARD_COLORS = [
-  ['#0f172a', '#1e293b'],  // Slate
-  ['#1e3a8a', '#3b82f6'],  // Blue
-  ['#581c87', '#9333ea'],  // Purple
-  ['#831843', '#db2777'],  // Pink
-  ['#713f12', '#f59e0b'],  // Amber
-  ['#14532d', '#22c55e'],  // Green
-  ['#164e63', '#06b6d4'],  // Cyan
-  ['#7c2d12', '#f97316'],  // Orange
-  ['#4c1d95', '#a855f7'],  // Violet
-  ['#881337', '#f43f5e'],  // Rose
+  ['#0f172a', '#1e293b'],
+  ['#1e3a8a', '#3b82f6'],
+  ['#581c87', '#9333ea'],
+  ['#831843', '#db2777'],
+  ['#713f12', '#f59e0b'],
+  ['#14532d', '#22c55e'],
+  ['#164e63', '#06b6d4'],
+  ['#7c2d12', '#f97316'],
+  ['#4c1d95', '#a855f7'],
+  ['#881337', '#f43f5e'],
 ];
 
-// ==================== MODAL DE CONFIRMACIÓN PROFESIONAL ====================
+// ==================== MODAL DE CONFIRMACIÓN ====================
 interface ConfirmModalProps {
   visible: boolean;
   onConfirm: () => void;
@@ -327,7 +326,6 @@ export default function CarritoScreen() {
   const [loadingTarjeta, setLoadingTarjeta] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
 
-  // ✅ Estado para datos del cliente
   const [clienteData, setClienteData] = useState<any>(null);
   const [showIncompleteNotification, setShowIncompleteNotification] = useState(false);
 
@@ -340,8 +338,6 @@ export default function CarritoScreen() {
   });
 
   const slideAnim = useRef(new Animated.Value(0)).current;
-
-  // Animaciones de éxito mejoradas
   const successOpacity = useRef(new Animated.Value(0)).current;
   const successScale = useRef(new Animated.Value(0.5)).current;
   const checkScale = useRef(new Animated.Value(0)).current;
@@ -381,7 +377,6 @@ export default function CarritoScreen() {
     };
   }, [isLogged]);
 
-  // ✅ RECARGAR DATOS CUANDO VUELVE A LA PANTALLA
   useFocusEffect(
     useCallback(() => {
       if (isLogged) {
@@ -428,13 +423,13 @@ export default function CarritoScreen() {
     setLoading(false);
   };
 
-  // ✅ CARGAR DATOS DEL CLIENTE
   const loadClienteData = async () => {
     try {
       const storedUser = await AsyncStorage.getItem("user");
       if (!storedUser) return;
 
       const userData = JSON.parse(storedUser);
+
       const res = await fetch(`${apiUrl}/api/clientes/`, {
         headers: { Accept: "application/json" },
       });
@@ -448,26 +443,32 @@ export default function CarritoScreen() {
         setClienteData(data);
       }
     } catch (error) {
-      // Sin logs de error en consola
+      // Error silencioso
     }
   };
 
-  // ✅ VERIFICAR SI EL PERFIL ESTÁ COMPLETO
   const isProfileComplete = () => {
     if (!clienteData) return false;
 
-    return (
-      clienteData.nombre?.trim() !== "" &&
-      clienteData.nombre?.trim() !== undefined &&
-      clienteData.apellido?.trim() !== "" &&
-      clienteData.apellido?.trim() !== undefined &&
-      clienteData.cedula?.trim() !== "" &&
-      clienteData.cedula?.trim() !== undefined &&
-      clienteData.direccion?.trim() !== "" &&
-      clienteData.direccion?.trim() !== undefined &&
-      clienteData.celular?.trim() !== "" &&
-      clienteData.celular?.trim() !== undefined
-    );
+    const camposFaltantes = [];
+    
+    if (!clienteData.nombre?.trim() || clienteData.nombre?.trim() === "Cliente") {
+      camposFaltantes.push("nombre");
+    }
+    if (!clienteData.apellido?.trim() || clienteData.apellido?.trim() === "Nuevo") {
+      camposFaltantes.push("apellido");
+    }
+    if (!clienteData.cedula?.trim()) {
+      camposFaltantes.push("cédula");
+    }
+    if (!clienteData.direccion?.trim()) {
+      camposFaltantes.push("dirección");
+    }
+    if (!clienteData.celular?.trim()) {
+      camposFaltantes.push("celular");
+    }
+
+    return camposFaltantes.length === 0;
   };
 
   const loadTarjetaWawallet = async () => {
@@ -647,6 +648,7 @@ export default function CarritoScreen() {
     }, 3500);
   };
 
+  // ✅ FUNCIÓN DE PAGO COMPLETA - USANDO ENDPOINTS EXISTENTES
   const procesarPagoWawallet = async () => {
     if (processing) return;
     
@@ -668,6 +670,7 @@ export default function CarritoScreen() {
       }
       const userData = JSON.parse(userStr);
 
+      // ========== FIRESTORE: TRANSFERENCIA DE SALDO ==========
       const queryBody = {
         structuredQuery: {
           from: [{ collectionId: "usuarios" }],
@@ -781,37 +784,84 @@ export default function CarritoScreen() {
         });
       });
 
-      const productosVenta = cart.map((item) => ({
-        id: item.id,
-        cantidad: item.cantidad || 1,
-      }));
+      // ========== DJANGO: REGISTRAR VENTA (USANDO ENDPOINTS EXISTENTES) ==========
+      
+      // 1. Verificar/Crear cliente
+      const clienteExiste = await fetch(`${apiUrl}/api/clientes/`, {
+        headers: { Accept: "application/json" },
+      });
+      const clientes = await clienteExiste.json();
+      const clienteExistente = clientes.find((c: any) => c.email === clienteData.email);
 
-      // ✅ ENVIAR TODOS LOS DATOS DEL CLIENTE
-      const djangoResponse = await fetch(`${apiUrl}/api/ventas/procesar/`, {
+      let clienteId = clienteExistente?.id;
+
+      if (!clienteExistente) {
+        const createClienteRes = await fetch(`${apiUrl}/api/clientes/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: clienteData.nombre,
+            apellido: clienteData.apellido,
+            cedula: clienteData.cedula,
+            direccion: clienteData.direccion,
+            celular: clienteData.celular,
+            email: clienteData.email,
+            sexo: clienteData.sexo || "Hombre",
+          }),
+        });
+
+        if (!createClienteRes.ok) {
+          throw new Error("Error al crear cliente");
+        }
+
+        const nuevoCliente = await createClienteRes.json();
+        clienteId = nuevoCliente.id;
+      }
+
+      // 2. Crear factura
+      const createFacturaRes = await fetch(`${apiUrl}/api/facturas/`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          usuario_id: userData.id,
-          productos: productosVenta,
+          cliente: clienteId,
+          total: total.toFixed(2),
           metodo_pago: "wawallet",
-          cliente: {
-            nombre: clienteData?.nombre || "",
-            apellido: clienteData?.apellido || "",
-            cedula: clienteData?.cedula || "",
-            direccion: clienteData?.direccion || "",
-            celular: clienteData?.celular || "",
-            email: clienteData?.email || userData.email,
-          }
         }),
       });
 
-      const facturaData = await djangoResponse.json();
+      if (!createFacturaRes.ok) {
+        throw new Error("Error al crear factura");
+      }
 
-      if (!djangoResponse.ok) {
-        showToast("Error al registrar la compra. Intenta de nuevo", "error");
-        return;
+      const factura = await createFacturaRes.json();
+
+      // 3. Crear detalles y actualizar stock
+      for (const item of cart) {
+        const subtotal = (Number(item.precio) * (item.cantidad || 1)).toFixed(2);
+
+        // Crear detalle
+        await fetch(`${apiUrl}/api/detalles/`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            factura: factura.id,
+            producto: item.id,
+            cantidad: item.cantidad || 1,
+            precio_unitario: item.precio,
+            subtotal: subtotal,
+          }),
+        });
+
+        // Actualizar stock
+        const nuevoStock = item.stock - (item.cantidad || 1);
+        
+        await fetch(`${apiUrl}/api/productos/${item.id}/`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            stock: nuevoStock,
+          }),
+        });
       }
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -828,7 +878,6 @@ export default function CarritoScreen() {
     } catch (error: any) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
-      // ✅ MENSAJES PROFESIONALES SIN LOGS
       if (error.message === "SALDO_INSUFICIENTE") {
         showToast("Saldo insuficiente. Revisa tu cuenta y vuelve a intentarlo más tarde", "error");
       } else if (error.message === "STOCK_INSUFICIENTE" || error.message.includes("stock")) {
@@ -845,6 +894,14 @@ export default function CarritoScreen() {
   const handleConfirmarCompra = () => {
     if (processing) return;
     
+    if (!isProfileComplete()) {
+      closeModal();
+      setTimeout(() => {
+        setShowIncompleteNotification(true);
+      }, 400);
+      return;
+    }
+
     if (!tarjetaWawallet) {
       showToast("No se ha cargado la tarjeta", "error");
       return;
@@ -864,7 +921,9 @@ export default function CarritoScreen() {
   };
 
   const openModal = () => {
-    if (!isProfileComplete()) {
+    const perfilCompleto = isProfileComplete();
+    
+    if (!perfilCompleto) {
       setShowIncompleteNotification(true);
       return;
     }
@@ -1012,286 +1071,275 @@ export default function CarritoScreen() {
     );
   }
 
- return (
-  <>
-    {/* ✅ VISTA PRINCIPAL */}
-    <View style={{ flex: 1, backgroundColor: "#fff" }}>
-      {/* HEADER */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.backButton}
-          activeOpacity={0.7}
-        >
-          <View style={styles.backButtonContainer}>
-            <Ionicons name="arrow-back" size={24} color="#000" />
+  return (
+    <>
+      <View style={{ flex: 1, backgroundColor: "#fff" }}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.backButton}
+            activeOpacity={0.7}
+          >
+            <View style={styles.backButtonContainer}>
+              <Ionicons name="arrow-back" size={24} color="#000" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.title}>CESTA</Text>
+          <View style={{ width: 44 }} />
+        </View>
+
+        {!isLogged ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="bag-handle-outline" size={80} color="#ddd" />
+            </View>
+            <Text style={styles.emptyTitle}>Inicia sesión</Text>
+            <Text style={styles.emptySubtitle}>
+              Para ver y gestionar tu cesta necesitas iniciar sesión
+            </Text>
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={() => router.push("/login")}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.loginButtonText}>Inicia sesión</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-        <Text style={styles.title}>CESTA</Text>
-        <View style={{ width: 44 }} />
+        ) : loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#000" />
+          </View>
+        ) : cart.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <View style={styles.emptyIconContainer}>
+              <Ionicons name="bag-handle-outline" size={80} color="#ddd" />
+            </View>
+            <Text style={styles.emptyTitle}>Tu cesta está vacía</Text>
+            <Text style={styles.emptySubtitle}>
+              Explora nuestro catálogo y añade tus fragancias favoritas
+            </Text>
+            <TouchableOpacity
+              style={styles.exploreButton}
+              onPress={() => router.push("/(tabs)")}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.exploreButtonText}>Explorar catálogo</Text>
+              <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <FlatList
+            key="cart-list"
+            data={cart}
+            renderItem={renderCartItem}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={styles.listContainer}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
+
+        {isLogged && cart.length > 0 && (
+          <View style={styles.footerFixed}>
+            <View style={styles.summaryContainer}>
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabelFinal}>Total</Text>
+                <Text style={styles.totalPriceFinal}>€{calcularTotal()}</Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              style={styles.checkoutButton}
+              onPress={openModal}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="card-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+              <Text style={styles.checkoutButtonText}>Proceder al pago</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </View>
 
-      {!isLogged ? (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconContainer}>
-            <Ionicons name="bag-handle-outline" size={80} color="#ddd" />
-          </View>
-          <Text style={styles.emptyTitle}>Inicia sesión</Text>
-          <Text style={styles.emptySubtitle}>
-            Para ver y gestionar tu cesta necesitas iniciar sesión
-          </Text>
-          <TouchableOpacity
-            style={styles.loginButton}
-            onPress={() => router.push("/login")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.loginButtonText}>Inicia sesión</Text>
-          </TouchableOpacity>
-        </View>
-      ) : loading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#000" />
-        </View>
-      ) : cart.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <View style={styles.emptyIconContainer}>
-            <Ionicons name="bag-handle-outline" size={80} color="#ddd" />
-          </View>
-          <Text style={styles.emptyTitle}>Tu cesta está vacía</Text>
-          <Text style={styles.emptySubtitle}>
-            Explora nuestro catálogo y añade tus fragancias favoritas
-          </Text>
-          <TouchableOpacity
-            style={styles.exploreButton}
-            onPress={() => router.push("/(tabs)")}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.exploreButtonText}>Explorar catálogo</Text>
-            <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          key="cart-list"
-          data={cart}
-          renderItem={renderCartItem}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContainer}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
-
-      {/* FOOTER */}
-      {isLogged && cart.length > 0 && (
-        <View style={styles.footerFixed}>
-          <View style={styles.summaryContainer}>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabelFinal}>Total</Text>
-              <Text style={styles.totalPriceFinal}>€{calcularTotal()}</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.checkoutButton}
-            onPress={openModal}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="card-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.checkoutButtonText}>Proceder al pago</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </View>
-
-    {/* ✅ MODALES (FUERA DEL VIEW PRINCIPAL) */}
-    {/* MODAL DE PAGO */}
-    <Modal transparent visible={modalVisible} animationType="none" statusBarTranslucent>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
-      >
-        <View style={styles.modalBackdrop}>
-          <Animated.View
-            style={[styles.modalContent, { transform: [{ translateY }] }]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Método de pago</Text>
-              <TouchableOpacity onPress={closeModal} activeOpacity={0.7}>
-                <Ionicons name="close-circle" size={28} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView 
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              contentContainerStyle={{ paddingBottom: 20 }}
+      <Modal transparent visible={modalVisible} animationType="none" statusBarTranslucent>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={0}
+        >
+          <View style={styles.modalBackdrop}>
+            <Animated.View
+              style={[styles.modalContent, { transform: [{ translateY }] }]}
             >
-              <View style={styles.wawalletCardContainer}>
-                {loadingTarjeta ? (
-                  <View style={styles.loadingCard}>
-                    <ActivityIndicator color="#000" />
-                    <Text style={styles.loadingText}>Cargando tarjeta...</Text>
-                  </View>
-                ) : tarjetaWawallet ? (
-                  <>
-                    <View style={styles.wawalletCard}>
-                      <LinearGradient
-                        colors={getCardGradient(tarjetaWawallet.colorIndex || 0)}
-                        style={styles.cardGradientBg}
-                      />
-                      <View style={styles.wawalletCardHeader}>
-                        <Ionicons name="card" size={32} color="#fff" />
-                        <Text style={styles.wawalletCardTitle}>WaWallet</Text>
-                      </View>
-                      <Text style={styles.wawalletCardNumber}>
-                        •••• •••• •••• {tarjetaWawallet.numero.slice(-4)}
-                      </Text>
-                      <Text style={styles.wawalletCardOwner}>
-                        {tarjetaWawallet.titular}
-                      </Text>
-                    </View>
-                    <View style={styles.warningBox}>
-                      <Ionicons
-                        name="information-circle"
-                        size={22}
-                        color="#F59E0B"
-                      />
-                      <Text style={styles.warningText}>
-                        No existe reembolso una vez confirmada la compra
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.changeTarjetaButton}
-                      onPress={handleGoToCards}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="swap-horizontal" size={18} color="#000" />
-                      <Text style={styles.changeTarjetaText}>
-                        Cambiar tarjeta
-                      </Text>
-                    </TouchableOpacity>
-                  </>
-                ) : (
-                  <TouchableOpacity
-                    style={styles.addTarjetaButton}
-                    onPress={handleGoToCards}
-                    activeOpacity={0.85}
-                  >
-                    <Ionicons name="add-circle-outline" size={24} color="#000" />
-                    <Text style={styles.addTarjetaText}>
-                      Añadir tarjeta de pago
-                    </Text>
-                  </TouchableOpacity>
-                )}
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Método de pago</Text>
+                <TouchableOpacity onPress={closeModal} activeOpacity={0.7}>
+                  <Ionicons name="close-circle" size={28} color="#666" />
+                </TouchableOpacity>
               </View>
 
-              <TouchableOpacity
-                style={[
-                  styles.confirmButton,
-                  (!tarjetaWawallet || processing) &&
-                    styles.confirmButtonDisabled,
-                ]}
-                onPress={handleConfirmarCompra}
-                disabled={processing || !tarjetaWawallet}
-                activeOpacity={0.85}
+              <ScrollView 
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                contentContainerStyle={{ paddingBottom: 20 }}
               >
-                {processing ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <>
-                    <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                    <Text style={styles.confirmText}>
-                      Pagar €{calcularTotal()}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          </Animated.View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+                <View style={styles.wawalletCardContainer}>
+                  {loadingTarjeta ? (
+                    <View style={styles.loadingCard}>
+                      <ActivityIndicator color="#000" />
+                      <Text style={styles.loadingText}>Cargando tarjeta...</Text>
+                    </View>
+                  ) : tarjetaWawallet ? (
+                    <>
+                      <View style={styles.wawalletCard}>
+                        <LinearGradient
+                          colors={getCardGradient(tarjetaWawallet.colorIndex || 0)}
+                          style={styles.cardGradientBg}
+                        />
+                        <View style={styles.wawalletCardHeader}>
+                          <Ionicons name="card" size={32} color="#fff" />
+                          <Text style={styles.wawalletCardTitle}>WaWallet</Text>
+                        </View>
+                        <Text style={styles.wawalletCardNumber}>
+                          •••• •••• •••• {tarjetaWawallet.numero.slice(-4)}
+                        </Text>
+                        <Text style={styles.wawalletCardOwner}>
+                          {tarjetaWawallet.titular}
+                        </Text>
+                      </View>
+                      <View style={styles.warningBox}>
+                        <Ionicons
+                          name="information-circle"
+                          size={22}
+                          color="#F59E0B"
+                        />
+                        <Text style={styles.warningText}>
+                          No existe reembolso una vez confirmada la compra
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.changeTarjetaButton}
+                        onPress={handleGoToCards}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="swap-horizontal" size={18} color="#000" />
+                        <Text style={styles.changeTarjetaText}>
+                          Cambiar tarjeta
+                        </Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.addTarjetaButton}
+                      onPress={handleGoToCards}
+                      activeOpacity={0.85}
+                    >
+                      <Ionicons name="add-circle-outline" size={24} color="#000" />
+                      <Text style={styles.addTarjetaText}>
+                        Añadir tarjeta de pago
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-    {/* MODAL DE CONFIRMACIÓN */}
-    <ConfirmModal
-      visible={confirmModal.visible}
-      title={confirmModal.title}
-      message={confirmModal.message}
-      onConfirm={confirmModal.onConfirm}
-      onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
-      confirmText="Confirmar"
-      cancelText="Cancelar"
-      showCancel={confirmModal.showCancel}
-    />
+                <TouchableOpacity
+                  style={[
+                    styles.confirmButton,
+                    (!tarjetaWawallet || processing) &&
+                      styles.confirmButtonDisabled,
+                  ]}
+                  onPress={handleConfirmarCompra}
+                  disabled={processing || !tarjetaWawallet}
+                  activeOpacity={0.85}
+                >
+                  {processing ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
+                      <Text style={styles.confirmText}>
+                        Pagar €{calcularTotal()}
+                      </Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            </Animated.View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
-    {/* ANIMACIÓN DE ÉXITO */}
-    {showSuccessAnimation && (
-      <Modal transparent visible={showSuccessAnimation} animationType="none">
-        <Animated.View
-          style={[styles.successOverlay, { opacity: successOpacity }]}
-        >
-          <View style={styles.successContainer}>
-            <Animated.View
-              style={[
-                styles.mainCircle,
-                { transform: [{ scale: successScale }] },
-              ]}
-            >
+      <ConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal({ ...confirmModal, visible: false })}
+        confirmText="Confirmar"
+        cancelText="Cancelar"
+        showCancel={confirmModal.showCancel}
+      />
+
+      {showSuccessAnimation && (
+        <Modal transparent visible={showSuccessAnimation} animationType="none">
+          <Animated.View
+            style={[styles.successOverlay, { opacity: successOpacity }]}
+          >
+            <View style={styles.successContainer}>
               <Animated.View
                 style={[
-                  styles.checkmarkContainer,
+                  styles.mainCircle,
+                  { transform: [{ scale: successScale }] },
+                ]}
+              >
+                <Animated.View
+                  style={[
+                    styles.checkmarkContainer,
+                    {
+                      transform: [
+                        { scale: checkScale },
+                        { rotate: checkRotateInterpolate },
+                      ],
+                    },
+                  ]}
+                >
+                  <Ionicons name="checkmark" size={100} color="#fff" />
+                </Animated.View>
+              </Animated.View>
+
+              <Animated.View
+                style={[
+                  styles.successTextContainer,
                   {
-                    transform: [
-                      { scale: checkScale },
-                      { rotate: checkRotateInterpolate },
-                    ],
+                    opacity: textOpacity,
+                    transform: [{ translateY: textTranslate }],
                   },
                 ]}
               >
-                <Ionicons name="checkmark" size={100} color="#fff" />
+                <Text style={styles.successTitle}>¡Compra exitosa!</Text>
+                <Text style={styles.successSubtitle}>
+                  Tu pedido ha sido procesado correctamente
+                </Text>
               </Animated.View>
-            </Animated.View>
+            </View>
+          </Animated.View>
+        </Modal>
+      )}
 
-            <Animated.View
-              style={[
-                styles.successTextContainer,
-                {
-                  opacity: textOpacity,
-                  transform: [{ translateY: textTranslate }],
-                },
-              ]}
-            >
-              <Text style={styles.successTitle}>¡Compra exitosa!</Text>
-              <Text style={styles.successSubtitle}>
-                Tu pedido ha sido procesado correctamente
-              </Text>
-            </Animated.View>
-          </View>
-        </Animated.View>
-      </Modal>
-    )}
+      <IncompleteProfileNotification
+        visible={showIncompleteNotification}
+        onClose={() => setShowIncompleteNotification(false)}
+        onUpdate={() => {
+          setShowIncompleteNotification(false);
+          router.push("/(tabs)/profile");
+        }}
+      />
 
-    {/* ✅ NOTIFICACIONES ENCIMA DE TODO (DESPUÉS DE LOS MODALES) */}
-    {/* NOTIFICACIÓN DE PERFIL INCOMPLETO */}
-    <IncompleteProfileNotification
-      visible={showIncompleteNotification}
-      onClose={() => setShowIncompleteNotification(false)}
-      onUpdate={() => {
-        setShowIncompleteNotification(false);
-        router.push("/(tabs)/profile");
-      }}
-    />
-
-    {/* ✅ TOAST ENCIMA DE TODO */}
-    <Toast
-      visible={toast.visible}
-      message={toast.message}
-      type={toast.type}
-      onHide={() => setToast({ ...toast, visible: false })}
-    />
-  </>
-);
-
+      <Toast
+        visible={toast.visible}
+        message={toast.message}
+        type={toast.type}
+        onHide={() => setToast({ ...toast, visible: false })}
+      />
+    </>
+  );
 }
 
 // ==================== ESTILOS ====================
@@ -1371,7 +1419,6 @@ const styles = StyleSheet.create({
   toastContent: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 16 },
   toastText: { color: "#fff", fontSize: 14, fontFamily: "PlayfairDisplay_600SemiBold", marginLeft: 12, flex: 1, letterSpacing: 0.3 },
   
-  // ✅ ESTILOS DE NOTIFICACIÓN DE PERFIL INCOMPLETO (Z-INDEX MÁXIMO)
   incompleteNotificationContainer: {
     position: 'absolute',
     top: 10,

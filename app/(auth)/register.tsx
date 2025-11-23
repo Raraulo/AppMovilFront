@@ -97,7 +97,7 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
   );
 };
 
-// ✨ NOTIFICACIÓN DE ÉXITO MEJORADA
+// ✨ NOTIFICACIÓN DE ÉXITO
 const SuccessNotification = ({ visible, onComplete }: any) => {
   const translateY = useRef(new Animated.Value(-200)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -201,9 +201,8 @@ const SuccessNotification = ({ visible, onComplete }: any) => {
 export default function RegisterScreen() {
   const router = useRouter();
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1); // Solo 2 pasos: email y contraseña
   const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
@@ -212,10 +211,8 @@ export default function RegisterScreen() {
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Toast
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
 
-  // Animaciones
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateYAnim = useRef(new Animated.Value(50)).current;
 
@@ -246,7 +243,8 @@ export default function RegisterScreen() {
     setToast({ visible: true, message, type });
   };
 
-  const handleSendCode = async () => {
+  // ✅ PASO 1: Verificar email (sin código)
+  const handleCheckEmail = async () => {
     if (!email.trim()) {
       showToast("Ingresa un correo válido", "warning");
       return;
@@ -267,67 +265,29 @@ export default function RegisterScreen() {
     try {
       const API_URL = await getApiUrl();
 
-      const res = await fetch(`${API_URL}/api/auth/send-code/`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase().trim() }),
-      });
-      const data = await res.json();
-
-      if (res.ok) {
-        showToast("Código enviado a tu correo", "success");
-        setTimeout(() => setStep(2), 1000);
-      } else {
-        showToast(data.message || "Error al enviar código", "error");
-      }
-    } catch (error) {
-      showToast("Error de conexión. Verifica tu red", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyCode = async () => {
-    if (!code || code.length < 6) {
-      showToast("Ingresa el código de 6 dígitos", "warning");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const API_URL = await getApiUrl();
-
+      // ✅ Verificar si el email ya existe
       const res = await fetch(`${API_URL}/api/auth/verify-code/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase().trim(), code }),
+        body: JSON.stringify({ 
+          email: email.toLowerCase().trim(),
+          code: "000000" // Código dummy (el backend lo ignora en modo dev)
+        }),
       });
       const data = await res.json();
 
       if (res.ok) {
         if (data.cliente_exists && data.cliente) {
-          await AsyncStorage.setItem(
-            "user",
-            JSON.stringify({
-              id: data.cliente.id,
-              email: data.cliente.email,
-              nombre: data.cliente.nombre,
-              apellido: data.cliente.apellido,
-              celular: data.cliente.celular,
-              sexo: data.cliente.sexo,
-            })
-          );
-
-          await AsyncStorage.setItem("showWelcome", "true");
-          await AsyncStorage.setItem("username", data.cliente.nombre);
-
-          setShowSuccessNotification(true);
+          // ❌ El email ya existe
+          showToast("Este correo ya está registrado. Inicia sesión", "error");
+          setTimeout(() => router.push("/(auth)/login"), 2000);
         } else {
-          showToast("Código verificado correctamente", "success");
-          setTimeout(() => setStep(3), 1000);
+          // ✅ Email disponible, pasar a crear contraseña
+          showToast("Email disponible", "success");
+          setTimeout(() => setStep(2), 1000);
         }
       } else {
-        showToast(data.message || "Código incorrecto", "error");
+        showToast(data.message || "Error al verificar email", "error");
       }
     } catch (error) {
       showToast("Error de conexión. Verifica tu red", "error");
@@ -336,6 +296,7 @@ export default function RegisterScreen() {
     }
   };
 
+  // ✅ PASO 2: Crear cuenta con contraseña
   const handleCreateAccount = async () => {
     if (!password.trim() || !confirmPassword.trim()) {
       showToast("Completa ambos campos de contraseña", "warning");
@@ -424,16 +385,15 @@ export default function RegisterScreen() {
                 { opacity: fadeAnim, transform: [{ translateY: translateYAnim }] },
               ]}
             >
-              {/* LOGO */}
               <Image
                 source={require("../../assets/images/logomaison.png")}
                 style={styles.logo}
                 resizeMode="contain"
               />
 
-              {/* INDICADOR DE PASOS */}
+              {/* INDICADOR DE PASOS (2 pasos) */}
               <View style={styles.stepsIndicator}>
-                {[1, 2, 3].map((s) => (
+                {[1, 2].map((s) => (
                   <View
                     key={s}
                     style={[
@@ -488,60 +448,24 @@ export default function RegisterScreen() {
                       styles.button,
                       (!acceptedTerms || loading) && styles.buttonDisabled,
                     ]}
-                    onPress={handleSendCode}
+                    onPress={handleCheckEmail}
                     disabled={!acceptedTerms || loading}
                     activeOpacity={0.85}
                   >
                     <Text style={styles.buttonText}>
-                      {loading ? "Enviando..." : "Continuar"}
+                      {loading ? "Verificando..." : "Continuar"}
                     </Text>
                     {!loading && <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />}
                   </TouchableOpacity>
                 </>
               )}
 
-              {/* STEP 2 - CÓDIGO */}
+              {/* STEP 2 - CONTRASEÑA */}
               {step === 2 && (
-                <>
-                  <Text style={styles.title}>Verificar código</Text>
-                  <Text style={styles.subtitle}>
-                    Ingresa el código enviado a {email}
-                  </Text>
-
-                  <View style={styles.inputContainer}>
-                    <Ionicons name="keypad-outline" size={20} color="#666" style={styles.inputIcon} />
-                    <TextInput
-                      placeholder="Código de 6 dígitos"
-                      placeholderTextColor="#aaa"
-                      style={styles.input}
-                      value={code}
-                      onChangeText={setCode}
-                      keyboardType="numeric"
-                      maxLength={6}
-                      returnKeyType="done"
-                      editable={!loading}
-                    />
-                  </View>
-
-                  <TouchableOpacity
-                    style={[styles.button, loading && styles.buttonDisabled]}
-                    onPress={handleVerifyCode}
-                    disabled={loading}
-                    activeOpacity={0.85}
-                  >
-                    <Text style={styles.buttonText}>
-                      {loading ? "Verificando..." : "Verificar código"}
-                    </Text>
-                  </TouchableOpacity>
-                </>
-              )}
-
-              {/* STEP 3 - CONTRASEÑA */}
-              {step === 3 && (
                 <>
                   <Text style={styles.title}>Crear contraseña</Text>
                   <Text style={styles.subtitle}>
-                    Elige una contraseña segura
+                    Elige una contraseña segura para {email}
                   </Text>
 
                   {/* Contraseña */}
@@ -625,7 +549,6 @@ export default function RegisterScreen() {
         </TouchableWithoutFeedback>
       </KeyboardAvoidingView>
 
-      {/* ✅ NOTIFICACIONES FLOTANTES (FUERA DEL KEYBOARDAVOIDINGVIEW) */}
       <SuccessNotification
         visible={showSuccessNotification}
         onComplete={handleNotificationComplete}
@@ -657,7 +580,6 @@ const styles = StyleSheet.create({
   },
   logo: { width: 200, height: 200, marginBottom: 20 },
   
-  // Indicador de pasos
   stepsIndicator: {
     flexDirection: 'row',
     gap: 10,
@@ -693,7 +615,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 
-  // Input mejorado
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -718,7 +639,6 @@ const styles = StyleSheet.create({
     padding: 8,
   },
 
-  // Checkbox mejorado
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -746,7 +666,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // Botón mejorado
   button: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -773,7 +692,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Link volver
   backLink: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -785,7 +703,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  // ✅ TOAST
   toastContainer: {
     position: "absolute",
     top: 0,
@@ -814,7 +731,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  // ✅ NOTIFICACIÓN DE ÉXITO MEJORADA
   successNotificationContainer: {
     position: 'absolute',
     top: 0,
