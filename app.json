@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "extra": {
-      "apiUrl": "http://192.168.1.5:8000"
+      "apiUrl": "http://192.168.1.5:8000",
+      "router": {},
+      "eas": {
+        "projectId": "a0590762-3fdf-4d7d-81b9-54fa1e58e058"
+      }
     },
     "ios": {
       "supportsTablet": true
