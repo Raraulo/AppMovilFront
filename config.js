@@ -1,26 +1,37 @@
-import Constants from 'expo-constants';
+// config.js
 import { Platform } from 'react-native';
 
-// Puerto por defecto del backend en desarrollo
+const DEVELOPMENT_IP = '192.168.1.5';
 const API_PORT = 8000;
+const PRODUCTION_URL = 'https://appmovilback-production.up.railway.app';
 
-const getDevApiUrl = () => {
-  // 1) Allow explicit override via app config / extra (recommended)
-  const extra = (Constants.manifest && Constants.manifest.extra) || (Constants.expoConfig && Constants.expoConfig.extra);
-  if (extra && extra.apiUrl) return extra.apiUrl.replace(/\/$/, '');
-
-  // 2) If running in Expo client, debuggerHost or hostUri may contain host:port
-  const debuggerHost = (Constants.manifest && (Constants.manifest.debuggerHost)) || (Constants.expoConfig && Constants.expoConfig.hostUri);
-  if (typeof debuggerHost === 'string') {
-    const host = debuggerHost.split(':')[0];
-    return `http://${host}:${API_PORT}`;
+export const getApiUrl = () => {
+  // ✅ FORZAR RAILWAY SIEMPRE (temporal para testing)
+  console.log('🚀 Usando Railway:', PRODUCTION_URL);
+  return PRODUCTION_URL;
+  
+  /* COMENTAR ESTO TEMPORALMENTE
+  if (!__DEV__) {
+    console.log('🚀 Modo Producción:', PRODUCTION_URL);
+    return PRODUCTION_URL;
   }
 
-  // 3) Android emulator mapping
-  if (Platform.OS === 'android') return `http://10.0.2.2:${API_PORT}`;
+  const configUrl = Constants.expoConfig?.extra?.apiUrl;
+  if (configUrl) {
+    console.log('📱 Usando app.json:', configUrl);
+    return configUrl;
+  }
 
-  // 4) Fallback to localhost
-  return `http://localhost:${API_PORT}`;
+  const url = `http://${DEVELOPMENT_IP}:${API_PORT}`;
+  const platformEmoji = Platform.OS === 'ios' ? '🍎' :
+                        Platform.OS === 'android' ? '🤖' : '💻';
+  console.log(`${platformEmoji} ${Platform.OS} - API URL:`, url);
+  return url;
+  */
 };
 
-export const API_URL = __DEV__ ? getDevApiUrl() : 'https://tu-servidor-en-produccion.com';
+export const API_URL = getApiUrl();
+
+console.log('✅ API Config cargado:', API_URL);
+console.log('📍 Plataforma:', Platform.OS);
+console.log('🔧 Dev Mode:', __DEV__);
