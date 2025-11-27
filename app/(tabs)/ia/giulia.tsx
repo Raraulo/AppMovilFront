@@ -271,8 +271,10 @@ IMPORTANTE:
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+
           Authorization: `Bearer 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`,
         },
+        
         body: JSON.stringify({
           model: "sonar",
           messages: [
