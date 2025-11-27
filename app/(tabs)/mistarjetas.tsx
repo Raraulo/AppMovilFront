@@ -37,7 +37,7 @@ import {
 } from "../../utils/storage";
 
 const { width, height } = Dimensions.get("window");
-const SWIPE_THRESHOLD = -80; // Cuánto hay que deslizar para ver el botón
+const SWIPE_THRESHOLD = -80;
 
 const CARD_COLORS = [
   ['#0f172a', '#1e293b', '#334155'],
@@ -59,18 +59,15 @@ const SwipeableCard = ({ item, isActive, onSetActive, onDelete }: any) => {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, gestureState) => {
-        // Solo activar si se mueve horizontalmente
         return Math.abs(gestureState.dx) > 5;
       },
       onPanResponderMove: (_, gestureState) => {
-        // Solo permitir deslizar hacia la izquierda
         if (gestureState.dx < 0) {
           translateX.setValue(gestureState.dx);
         }
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dx < SWIPE_THRESHOLD) {
-          // Deslizó suficiente, mostrar botón
           Animated.spring(translateX, {
             toValue: SWIPE_THRESHOLD,
             useNativeDriver: true,
@@ -81,7 +78,6 @@ const SwipeableCard = ({ item, isActive, onSetActive, onDelete }: any) => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
           }
         } else {
-          // No deslizó suficiente, volver a la posición original
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
@@ -114,7 +110,6 @@ const SwipeableCard = ({ item, isActive, onSetActive, onDelete }: any) => {
 
   return (
     <View style={styles.swipeableContainer}>
-      {/* ✅ BOTÓN ELIMINAR DETRÁS DE LA TARJETA */}
       <View style={styles.deleteButtonBehind}>
         <TouchableOpacity
           style={styles.deleteActionButton}
@@ -125,7 +120,6 @@ const SwipeableCard = ({ item, isActive, onSetActive, onDelete }: any) => {
         </TouchableOpacity>
       </View>
 
-      {/* ✅ TARJETA CON SWIPE */}
       <Animated.View
         style={[
           styles.cardAnimatedWrapper,
@@ -798,19 +792,19 @@ export default function MisTarjetasScreen() {
             },
           ]}
         >
-          <View style={styles.header}>
-            <TouchableOpacity 
-              onPress={() => router.back()} 
-              style={styles.backButton}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="arrow-back" size={24} color="#000" />
-            </TouchableOpacity>
-            <Text style={[styles.title, { fontFamily: 'PlayfairDisplay_700Bold' }]}>
-              Mis Tarjetas
-            </Text>
-            <View style={{ width: 40 }} />
-          </View>
+<View style={styles.header}>
+  <TouchableOpacity 
+    onPress={() => router.push("/(tabs)/profile")} // ✨ CAMBIO: regresa a profile
+    style={styles.backButton}
+    activeOpacity={0.7}
+  >
+    <Ionicons name="arrow-back" size={24} color="#000" />
+  </TouchableOpacity>
+  <Text style={styles.title}>
+    Mis Tarjetas
+  </Text>
+  <View style={{ width: 40 }} />
+</View>
 
           <ScrollView 
             showsVerticalScrollIndicator={false}
@@ -894,7 +888,7 @@ export default function MisTarjetasScreen() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
               >
-                <Text style={[styles.modalTitle, { fontFamily: 'PlayfairDisplay_700Bold' }]}>
+                <Text style={styles.modalTitle}>
                   Agregar Tarjeta
                 </Text>
 
@@ -1056,13 +1050,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FAFAFA" },
   content: { flex: 1 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#FAFAFA" },
-  loadingText: { marginTop: 16, fontSize: 16, color: "#666" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: Platform.OS === "ios" ? 60 : 40, paddingBottom: 20, backgroundColor: "#FAFAFA" },
+  loadingText: { marginTop: 16, fontSize: 16, color: "#666", fontFamily: "PlayfairDisplay_400Regular" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingTop: Platform.OS === "ios" ? 60 : 50, paddingBottom: 20, backgroundColor: "#FAFAFA" },
   backButton: { width: 40, height: 40, borderRadius: 20, backgroundColor: "#fff", justifyContent: "center", alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  title: { fontSize: 24, fontWeight: "700", color: "#000", letterSpacing: 0.5 },
+  title: { fontSize: 20, fontFamily: "PlayfairDisplay_700Bold", color: "#000", letterSpacing: 0.5 },
   scrollContent: { paddingHorizontal: 20, paddingTop: 10 },
   cardsSection: { marginBottom: 20 },
-  // ✅ SWIPEABLE CARD STYLES
   swipeableContainer: {
     marginBottom: 24,
     position: "relative",
@@ -1085,13 +1078,6 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingHorizontal: 16,
   },
-  deleteActionText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "700",
-    marginTop: 4,
-    letterSpacing: 0.3,
-  },
   cardAnimatedWrapper: {
     marginBottom: 0,
   },
@@ -1103,25 +1089,25 @@ const styles = StyleSheet.create({
   statusIndicatorInactive: { backgroundColor: "rgba(255, 255, 255, 0.15)" },
   activePulse: { position: "absolute", width: 12, height: 12, borderRadius: 6, backgroundColor: "#10B981", opacity: 0.3 },
   activeDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#10B981" },
-  statusTextActive: { color: "#10B981", fontSize: 11, fontWeight: "700", letterSpacing: 1 },
-  statusTextInactive: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: "600", letterSpacing: 0.5 },
+  statusTextActive: { color: "#10B981", fontSize: 11, fontFamily: "PlayfairDisplay_700Bold", letterSpacing: 1 },
+  statusTextInactive: { color: "rgba(255,255,255,0.7)", fontSize: 11, fontFamily: "PlayfairDisplay_600SemiBold", letterSpacing: 0.5 },
   chipDecoration: { width: 50, height: 40, borderRadius: 8, backgroundColor: "rgba(255, 255, 255, 0.25)", padding: 6, marginBottom: 8 },
   chipInner: { flex: 1, borderRadius: 4, backgroundColor: "rgba(255, 255, 255, 0.4)" },
   cardNumberContainer: { marginVertical: 8 },
   creditCardNumber: { fontSize: 22, fontWeight: "600", color: "#fff", letterSpacing: 2, fontFamily: Platform.select({ ios: "Courier", android: "monospace" }) },
   creditCardBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
   cardInfoSection: { flex: 1 },
-  creditCardLabel: { fontSize: 10, color: "rgba(255,255,255,0.7)", marginBottom: 4, letterSpacing: 1, fontWeight: "600" },
+  creditCardLabel: { fontSize: 10, color: "rgba(255,255,255,0.7)", marginBottom: 4, letterSpacing: 1, fontFamily: "PlayfairDisplay_600SemiBold" },
   creditCardExpiry: { fontSize: 14, fontWeight: "600", color: "#fff", fontFamily: Platform.select({ ios: "Courier", android: "monospace" }) },
   cardPattern: { position: "absolute", top: -30, right: -30, width: 200, height: 200, opacity: 0.1 },
   cardPatternCircle1: { position: "absolute", width: 150, height: 150, borderRadius: 75, backgroundColor: "#fff", top: 20, right: 20 },
   cardPatternCircle2: { position: "absolute", width: 100, height: 100, borderRadius: 50, backgroundColor: "#fff", bottom: 0, left: 0 },
   activeCardBadge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", backgroundColor: "rgba(16, 185, 129, 0.1)", paddingHorizontal: 12, paddingVertical: 8, borderRadius: 12, marginTop: 8, gap: 6 },
-  activeCardBadgeText: { fontSize: 13, fontWeight: "600", color: "#10B981", letterSpacing: 0.3 },
+  activeCardBadgeText: { fontSize: 13, fontFamily: "PlayfairDisplay_600SemiBold", color: "#10B981", letterSpacing: 0.3 },
   emptyState: { alignItems: "center", paddingVertical: 60 },
   emptyIconContainer: { width: 120, height: 120, borderRadius: 60, backgroundColor: "#f0f0f0", justifyContent: "center", alignItems: "center", marginBottom: 20 },
-  emptyTitle: { fontSize: 20, fontWeight: "700", color: "#333", marginBottom: 8 },
-  emptySubtitle: { fontSize: 15, color: "#666", textAlign: "center", paddingHorizontal: 40, lineHeight: 22 },
+  emptyTitle: { fontSize: 20, fontFamily: "PlayfairDisplay_700Bold", color: "#333", marginBottom: 8 },
+  emptySubtitle: { fontSize: 15, fontFamily: "PlayfairDisplay_400Regular", color: "#666", textAlign: "center", paddingHorizontal: 40, lineHeight: 22 },
   addButtonContainer: {
     position: "absolute",
     bottom: 62,
@@ -1136,44 +1122,44 @@ const styles = StyleSheet.create({
   },
   addButton: { borderRadius: 16, overflow: "hidden", elevation: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 10 },
   addButtonGradient: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 18, gap: 12 },
-  addButtonText: { color: "#fff", fontSize: 16, fontWeight: "700", letterSpacing: 0.5 },
+  addButtonText: { color: "#fff", fontSize: 16, fontFamily: "PlayfairDisplay_700Bold", letterSpacing: 0.5 },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.6)" },
   modalBackdrop: { flex: 1 },
   modalContent: { position: "absolute", bottom: 0, left: 0, right: 0, backgroundColor: "#fff", borderTopLeftRadius: 30, borderTopRightRadius: 30, paddingHorizontal: 24, paddingTop: 12, paddingBottom: Platform.OS === "ios" ? 40 : 24, maxHeight: height * 0.9 },
   modalHandle: { width: 40, height: 4, backgroundColor: "#ddd", borderRadius: 2, alignSelf: "center", marginBottom: 20 },
-  modalTitle: { fontSize: 26, fontWeight: "700", color: "#000", marginBottom: 24, textAlign: "center", letterSpacing: 0.5 },
+  modalTitle: { fontSize: 26, fontFamily: "PlayfairDisplay_700Bold", color: "#000", marginBottom: 24, textAlign: "center", letterSpacing: 0.5 },
   previewCard: { height: 200, borderRadius: 20, padding: 24, marginBottom: 24, justifyContent: "space-between", position: "relative", overflow: "hidden" },
   previewNumber: { fontSize: 22, fontWeight: "600", color: "#fff", letterSpacing: 2, fontFamily: Platform.select({ ios: "Courier", android: "monospace" }) },
   previewBottom: { flexDirection: "row", justifyContent: "space-between" },
-  previewLabel: { fontSize: 10, color: "rgba(255,255,255,0.7)", marginBottom: 4, letterSpacing: 1, fontWeight: "600" },
+  previewLabel: { fontSize: 10, color: "rgba(255,255,255,0.7)", marginBottom: 4, letterSpacing: 1, fontFamily: "PlayfairDisplay_600SemiBold" },
   previewValue: { fontSize: 14, fontWeight: "600", color: "#fff", letterSpacing: 0.5 },
   colorSelectorContainer: { marginBottom: 24 },
-  colorSelectorLabel: { fontSize: 15, fontWeight: "600", color: "#333", marginBottom: 12, letterSpacing: 0.3 },
+  colorSelectorLabel: { fontSize: 15, fontFamily: "PlayfairDisplay_600SemiBold", color: "#333", marginBottom: 12, letterSpacing: 0.3 },
   colorSelector: { flexDirection: "row", gap: 12 },
   colorOption: { width: 48, height: 48, borderRadius: 24, justifyContent: "center", alignItems: "center" },
   colorOptionSelected: { borderWidth: 3, borderColor: "#fff", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
   formGroup: { marginBottom: 20 },
   formRow: { flexDirection: "row" },
-  inputLabel: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8, letterSpacing: 0.3 },
-  input: { backgroundColor: "#F5F5F5", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, color: "#000", borderWidth: 1, borderColor: "transparent" },
+  inputLabel: { fontSize: 14, fontFamily: "PlayfairDisplay_600SemiBold", color: "#333", marginBottom: 8, letterSpacing: 0.3 },
+  input: { backgroundColor: "#F5F5F5", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, fontFamily: "PlayfairDisplay_400Regular", color: "#000", borderWidth: 1, borderColor: "transparent" },
   verificandoContainer: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#EFF6FF", padding: 16, borderRadius: 12, marginBottom: 16, gap: 12 },
-  verificandoText: { fontSize: 14, fontWeight: "600", color: "#3B82F6", letterSpacing: 0.3 },
+  verificandoText: { fontSize: 14, fontFamily: "PlayfairDisplay_600SemiBold", color: "#3B82F6", letterSpacing: 0.3 },
   primaryButton: { borderRadius: 16, overflow: "hidden", marginTop: 10, elevation: 6, shadowColor: "#000", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.2, shadowRadius: 10 },
   primaryButtonDisabled: { opacity: 0.7 },
   primaryButtonGradient: { paddingVertical: 16, alignItems: "center" },
-  primaryButtonText: { color: "#fff", fontSize: 16, fontWeight: "700", letterSpacing: 0.5 },
+  primaryButtonText: { color: "#fff", fontSize: 16, fontFamily: "PlayfairDisplay_700Bold", letterSpacing: 0.5 },
   secondaryButton: { paddingVertical: 16, alignItems: "center", marginTop: 12 },
-  secondaryButtonText: { color: "#666", fontSize: 16, fontWeight: "600", letterSpacing: 0.3 },
+  secondaryButtonText: { color: "#666", fontSize: 16, fontFamily: "PlayfairDisplay_600SemiBold", letterSpacing: 0.3 },
   notificationOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.7)", justifyContent: "center", alignItems: "center", padding: 20 },
   notificationBackdrop: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   notificationContent: { backgroundColor: "#fff", borderRadius: 24, padding: 32, width: "100%", maxWidth: 380, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.4, shadowRadius: 30, elevation: 20 },
   notificationIconContainer: { width: 80, height: 80, borderRadius: 40, justifyContent: "center", alignItems: "center", marginBottom: 20 },
-  notificationTitle: { fontSize: 22, fontWeight: "700", color: "#1F2937", marginBottom: 12, textAlign: "center", letterSpacing: 0.3 },
-  notificationMessage: { fontSize: 15, fontWeight: "400", color: "#6B7280", textAlign: "center", lineHeight: 22, marginBottom: 28, paddingHorizontal: 10 },
+  notificationTitle: { fontSize: 22, fontFamily: "PlayfairDisplay_700Bold", color: "#1F2937", marginBottom: 12, textAlign: "center", letterSpacing: 0.3 },
+  notificationMessage: { fontSize: 15, fontFamily: "PlayfairDisplay_400Regular", color: "#6B7280", textAlign: "center", lineHeight: 22, marginBottom: 28, paddingHorizontal: 10 },
   notificationButton: { width: "100%", paddingVertical: 16, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  notificationButtonText: { color: "#fff", fontSize: 16, fontWeight: "700", letterSpacing: 0.5 },
+  notificationButtonText: { color: "#fff", fontSize: 16, fontFamily: "PlayfairDisplay_700Bold", letterSpacing: 0.5 },
   notificationButtonsRow: { flexDirection: "row", width: "100%", gap: 12 },
   notificationButtonHalf: { flex: 1, paddingVertical: 16, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   notificationButtonCancel: { backgroundColor: "#F3F4F6" },
-  notificationButtonTextCancel: { color: "#6B7280", fontSize: 16, fontWeight: "700", letterSpacing: 0.5 },
+  notificationButtonTextCancel: { color: "#6B7280", fontSize: 16, fontFamily: "PlayfairDisplay_700Bold", letterSpacing: 0.5 },
 });

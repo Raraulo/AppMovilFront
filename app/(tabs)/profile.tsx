@@ -7,7 +7,6 @@ import {
 } from "@expo-google-fonts/playfair-display";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Picker } from "@react-native-picker/picker";
 import { ResizeMode, Video } from 'expo-av';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from "expo-router";
@@ -448,6 +447,11 @@ export default function ProfileScreen() {
         showToast("Datos actualizados correctamente", "success");
         console.log('✅ Datos actualizados');
         
+        // ✨ CERRAR DATOS PERSONALES AUTOMÁTICAMENTE
+        setTimeout(() => {
+          setMostrarPerfil(false);
+        }, 1000);
+        
         // Recargar datos
         await fetchCliente();
       } else {
@@ -731,17 +735,51 @@ export default function ProfileScreen() {
                 />
               </View>
 
+              {/* ✨ SELECTOR DE SEXO MEJORADO */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Sexo</Text>
-                <View style={styles.pickerWrapper}>
-                  <Picker 
-                    selectedValue={sexo} 
-                    onValueChange={(v) => setSexo(v)} 
-                    style={styles.picker}
+                <View style={styles.genderSelector}>
+                  <TouchableOpacity
+                    style={[
+                      styles.genderOption,
+                      sexo === "Hombre" && styles.genderOptionActive
+                    ]}
+                    onPress={() => setSexo("Hombre")}
+                    activeOpacity={0.8}
                   >
-                    <Picker.Item label="Hombre" value="Hombre" />
-                    <Picker.Item label="Mujer" value="Mujer" />
-                  </Picker>
+                    <Ionicons 
+                      name="male" 
+                      size={20} 
+                      color={sexo === "Hombre" ? "#fff" : "#666"} 
+                    />
+                    <Text style={[
+                      styles.genderOptionText,
+                      sexo === "Hombre" && styles.genderOptionTextActive
+                    ]}>
+                      Hombre
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.genderOption,
+                      sexo === "Mujer" && styles.genderOptionActive
+                    ]}
+                    onPress={() => setSexo("Mujer")}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons 
+                      name="female" 
+                      size={20} 
+                      color={sexo === "Mujer" ? "#fff" : "#666"} 
+                    />
+                    <Text style={[
+                      styles.genderOptionText,
+                      sexo === "Mujer" && styles.genderOptionTextActive
+                    ]}>
+                      Mujer
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
@@ -757,23 +795,25 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* ✨ BENEFICIOS */}
+        {/* ✨ BENEFICIOS REDISEÑADOS - SIN BOTONES */}
         {!mostrarPerfil && (
           <View style={styles.sectionContainer}>
             <Text style={styles.sectionTitle}>Tus beneficios</Text>
-            <View style={styles.benefitsGrid}>
+            <View style={styles.benefitsContainer}>
               {[
                 { icon: "cart-outline", title: "Compra fácil", text: "Explora y agrega productos" },
                 { icon: "mail-outline", title: "Notificaciones", text: "Mantente informado" },
                 { icon: "location-outline", title: "Entrega rápida", text: "Recoge tu pedido en nuestra Boutique de aromas" },
                 { icon: "shield-checkmark-outline", title: "Seguridad", text: "Toda tu información se encuentra protegida" },
               ].map((benefit, i) => (
-                <View key={i} style={styles.benefitCard}>
-                  <View style={styles.benefitIconContainer}>
-                    <Ionicons name={benefit.icon as any} size={32} color="#000" />
+                <View key={i} style={styles.benefitItem}>
+                  <View style={styles.benefitIconCircle}>
+                    <Ionicons name={benefit.icon as any} size={24} color="#000" />
                   </View>
-                  <Text style={styles.benefitTitle}>{benefit.title}</Text>
-                  <Text style={styles.benefitText}>{benefit.text}</Text>
+                  <View style={styles.benefitTextContainer}>
+                    <Text style={styles.benefitTitle}>{benefit.title}</Text>
+                    <Text style={styles.benefitText}>{benefit.text}</Text>
+                  </View>
                 </View>
               ))}
             </View>
@@ -1238,18 +1278,37 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#e8e8e8",
   },
-  pickerWrapper: {
+  
+  // ✨ SELECTOR DE GÉNERO MEJORADO
+  genderSelector: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  genderOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
     backgroundColor: "#fff",
-    width: "100%",
+    paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 1.5,
     borderColor: "#e8e8e8",
-    overflow: 'hidden',
   },
-  picker: { 
-    width: "100%", 
-    height: 50,
+  genderOptionActive: {
+    backgroundColor: "#000",
+    borderColor: "#000",
   },
+  genderOptionText: {
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontSize: 14,
+    color: "#666",
+  },
+  genderOptionTextActive: {
+    color: "#fff",
+  },
+
   saveButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1273,43 +1332,43 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // ✨ BENEFICIOS
-  benefitsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  // ✨ BENEFICIOS REDISEÑADOS - SIN APARIENCIA DE BOTÓN
+  benefitsContainer: {
     gap: 15,
   },
-  benefitCard: {
-    width: (width - 55) / 2,
+  benefitItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
     backgroundColor: "#fafafa",
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f0f0f0',
+    borderRadius: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: "#000",
   },
-  benefitIconContainer: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+  benefitIconCircle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: "#fff",
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginRight: 15,
     borderWidth: 1,
     borderColor: '#f0f0f0',
+  },
+  benefitTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
   },
   benefitTitle: { 
     fontFamily: "PlayfairDisplay_600SemiBold", 
     fontSize: 15,
     color: "#000", 
-    textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   benefitText: {
     fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 12,
-    textAlign: "center",
+    fontSize: 13,
     color: "#666",
     lineHeight: 18,
   },

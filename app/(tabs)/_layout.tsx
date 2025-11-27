@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Tabs } from "expo-router";
+import { Tabs, usePathname, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Animated,
@@ -15,17 +15,26 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getCart, storageEvents } from "../../utils/storage";
 
+
 // 🎨 Definiciones de color y tamaño
 const ICON_SIZE = 28;
 const ICON_COLOR = "#000000";
 const ICON_COLOR_INACTIVE = "#999999";
 const BADGE_COLOR = "#FF3B5C";
 
+
 /* -------------------------------------------------------
     🧩 Subcomponente TabItem (ultra mejorado)
 --------------------------------------------------------*/
-function TabItem({ route, index, state, navigation, cartCount }: any) {
-  const isFocused = state.index === index;
+function TabItem({ route, index, state, navigation, cartCount, isAiButton }: any) {
+  const router = useRouter();
+  const pathname = usePathname();
+  
+  // ✨ Para el botón AI, verifica si estamos en la ruta de Giulia
+  const isFocused = isAiButton 
+    ? pathname.includes('/ia/giulia')
+    : state.index === index;
+    
   const scale = useRef(new Animated.Value(1)).current;
   const translateY = useRef(new Animated.Value(0)).current;
   const glowOpacity = useRef(new Animated.Value(0)).current;
@@ -58,17 +67,27 @@ function TabItem({ route, index, state, navigation, cartCount }: any) {
     ]).start();
   }, [isFocused]);
 
+
   const onPress = () => {
     // ✨ VIBRACIÓN AL PRESIONAR
     if (Platform.OS === 'ios' || Platform.OS === 'android') {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
 
+
+    // ✨ BOTÓN GIULIA AI - navega directamente
+    if (isAiButton) {
+      router.push("/(tabs)/ia/giulia");
+      return;
+    }
+
+
     const event = navigation.emit({
       type: "tabPress",
       target: route.key,
       canPreventDefault: true,
     });
+
 
     if (route.name === "index") {
       if (isFocused) {
@@ -79,15 +98,21 @@ function TabItem({ route, index, state, navigation, cartCount }: any) {
       return;
     }
 
+
     if (!isFocused && !event.defaultPrevented) {
       navigation.navigate(route.name);
     }
   };
 
+
   let iconName = "";
   let iconNameOutline = "";
 
-  if (route.name === "index") {
+
+  if (isAiButton) {
+    iconName = "sparkles";
+    iconNameOutline = "sparkles-sharp";
+  } else if (route.name === "index") {
     iconName = "home";
     iconNameOutline = "home-outline";
   } else if (route.name === "favoritos/index") {
@@ -101,9 +126,10 @@ function TabItem({ route, index, state, navigation, cartCount }: any) {
     iconNameOutline = "person-outline";
   }
 
+
   return (
     <Pressable
-      key={route.key}
+      key={isAiButton ? "ai-button" : route.key}
       onPress={onPress}
       style={styles.tabItem}
     >
@@ -132,6 +158,7 @@ function TabItem({ route, index, state, navigation, cartCount }: any) {
           </Animated.View>
         )}
 
+
         {/* Indicador superior */}
         {isFocused && (
           <Animated.View
@@ -144,6 +171,7 @@ function TabItem({ route, index, state, navigation, cartCount }: any) {
           />
         )}
 
+
         {/* Ícono con contador */}
         <Animated.View style={{ opacity: iconOpacity }}>
           <View style={styles.iconContainer}>
@@ -152,7 +180,7 @@ function TabItem({ route, index, state, navigation, cartCount }: any) {
               size={ICON_SIZE}
               color={isFocused ? ICON_COLOR : ICON_COLOR_INACTIVE}
             />
-            {route.name === "carrito/index" && cartCount > 0 && (
+            {route?.name === "carrito/index" && cartCount > 0 && (
               <View style={styles.cartBadge}>
                 <Text style={styles.cartBadgeText}>
                   {cartCount > 9 ? "9+" : cartCount}
@@ -166,12 +194,14 @@ function TabItem({ route, index, state, navigation, cartCount }: any) {
   );
 }
 
+
 /* -------------------------------------------------------
     🌑 FancyTabBar — diseño extremo premium
 --------------------------------------------------------*/
 export function FancyTabBar({ state, navigation, cartCount: externalCartCount }: any) {
   const insets = useSafeAreaInsets();
   const [cartCount, setCartCount] = useState(0);
+
 
   useEffect(() => {
     const loadCart = async () => {
@@ -183,15 +213,19 @@ export function FancyTabBar({ state, navigation, cartCount: externalCartCount }:
       }
     };
 
+
     loadCart();
+
 
     const onCartChange = () => loadCart();
     storageEvents.on("cartChanged", onCartChange);
+
 
     return () => {
       storageEvents.off("cartChanged", onCartChange);
     };
   }, [externalCartCount]);
+
 
   return (
     <View
@@ -210,31 +244,49 @@ export function FancyTabBar({ state, navigation, cartCount: externalCartCount }:
         <View style={styles.androidBlur} />
       )}
 
+
       {/* Borde superior con gradiente */}
       <LinearGradient
         colors={['rgba(0,0,0,0.08)', 'transparent']}
         style={styles.topBorder}
       />
 
+
       {/* Contenedor de tabs */}
       <View style={styles.tabBarContainer}>
         {state.routes.map((route: any, index: number) => {
-          if (route.name.includes("facturas") || route.name.includes("mistarjetas") || route.name === "top") return null;
+          if (route.name.includes("facturas") || route.name.includes("mistarjetas") || route.name === "top" || route.name.includes("ia")) return null;
+          
           return (
-            <TabItem
-              key={route.key}
-              route={route}
-              index={index}
-              state={state}
-              navigation={navigation}
-              cartCount={cartCount}
-            />
+            <React.Fragment key={route.key}>
+              <TabItem
+                route={route}
+                index={index}
+                state={state}
+                navigation={navigation}
+                cartCount={cartCount}
+                isAiButton={false}
+              />
+              
+              {/* ✨ BOTÓN GIULIA AI DESPUÉS DE HOME */}
+              {route.name === "index" && (
+                <TabItem
+                  route={{}}
+                  index={-1}
+                  state={state}
+                  navigation={navigation}
+                  cartCount={0}
+                  isAiButton={true}
+                />
+              )}
+            </React.Fragment>
           );
         })}
       </View>
     </View>
   );
 }
+
 
 /* -------------------------------------------------------
     🧭 Tabs Layout principal
@@ -249,12 +301,19 @@ export default function TabsLayout() {
       tabBar={(props) => <FancyTabBar {...props} />}
     >
       <Tabs.Screen name="index" />
+      <Tabs.Screen 
+        name="ia" 
+        options={{
+          href: null,
+        }}
+      />
       <Tabs.Screen name="favoritos/index" />
       <Tabs.Screen name="carrito/index" />
       <Tabs.Screen name="profile" />
     </Tabs>
   );
 }
+
 
 /* -------------------------------------------------------
     🎨 Estilos Premium
@@ -265,7 +324,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.8)' : '#ffffff',
+    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.5)' : '#ffffff',
     shadowColor: "#000",
     shadowOpacity: 0.12,
     shadowOffset: { width: 0, height: -8 },
@@ -276,7 +335,7 @@ const styles = StyleSheet.create({
   },
   androidBlur: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
   },
   topBorder: {
     position: 'absolute',
@@ -290,13 +349,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-around",
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
     paddingTop: Platform.OS === 'ios' ? 8 : 4,
+    gap: 4,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 2,
   },
   tabItemContent: {
     alignItems: "center",
@@ -305,14 +366,14 @@ const styles = StyleSheet.create({
   },
   glowBackground: {
     position: 'absolute',
-    width: 80,        // ⬅️ MÁS ANCHO (era 60)
-    height: 50,       // ⬅️ MÁS BAJO (era 60)
-    borderRadius: 25, // ⬅️ Ajustado para la forma ovalada
+    width: 80,
+    height: 50,
+    borderRadius: 25,
   },
   glowGradient: {
     width: '100%',
     height: '100%',
-    borderRadius: 25,  // ⬅️ Igual que el padre
+    borderRadius: 25,
   },
   activeIndicator: {
     position: 'absolute',

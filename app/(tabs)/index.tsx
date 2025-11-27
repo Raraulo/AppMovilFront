@@ -446,10 +446,10 @@ const tipoEquivalencias: Record<number, string> = {
           marca_nombre: marcaMap[p.marca] || "Maison Parfum",
         }));
 
-        const productosConStock = dataMap.filter((p: any) => p.stock >= 4);
+        const productosConStock = dataMap.filter((p: any) => p.stock >= 11);
         setRecomendados(productosConStock.sort(() => 0.5 - Math.random()).slice(0, 10));
 
-        console.log(`✅ Productos cargados: ${productosConStock.length} con stock >= 4`);
+        console.log(`✅ Productos cargados: ${productosConStock.length} con stock >= 11`);
       } catch (e) {
         console.error('Error cargando productos:', e);
       } finally {

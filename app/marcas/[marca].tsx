@@ -37,19 +37,16 @@ import {
   storageEvents,
 } from "../../utils/storage";
 
-
 const { width, height } = Dimensions.get("window");
 const CARD_MARGIN = 10;
 const CARD_WIDTH = (width - CARD_MARGIN * 3) / 2;
 const CARD_HEIGHT = 340;
-
 
 // ✨ TOAST MEJORADO
 const Toast = ({ visible, message, type = "success", onHide }: any) => {
   const translateY = useRef(new Animated.Value(-120)).current;
   const scale = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-
 
   useEffect(() => {
     if (visible) {
@@ -74,7 +71,6 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
         }),
       ]).start();
 
-
       setTimeout(() => {
         Animated.parallel([
           Animated.timing(translateY, {
@@ -95,9 +91,7 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
     }
   }, [visible]);
 
-
   if (!visible) return null;
-
 
   const backgroundColor = type === "error" 
     ? "rgba(239, 68, 68, 0.95)" 
@@ -110,7 +104,6 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
     : type === "error" 
     ? "close-circle" 
     : "information-circle";
-
 
   return (
     <Animated.View
@@ -131,13 +124,11 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
   );
 };
 
-
 // ✨ TARJETA DE PRODUCTO ANIMADA
 const AnimatedProductCard = ({ item, index, onPress, onToggleFavorite, isFavorite, marca }: any) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
-
 
   useEffect(() => {
     Animated.parallel([
@@ -158,7 +149,6 @@ const AnimatedProductCard = ({ item, index, onPress, onToggleFavorite, isFavorit
     ]).start();
   }, []);
 
-
   const handlePressIn = () => {
     Animated.spring(scaleAnim, {
       toValue: 0.96,
@@ -167,7 +157,6 @@ const AnimatedProductCard = ({ item, index, onPress, onToggleFavorite, isFavorit
     }).start();
   };
 
-
   const handlePressOut = () => {
     Animated.spring(scaleAnim, {
       toValue: 1,
@@ -175,7 +164,6 @@ const AnimatedProductCard = ({ item, index, onPress, onToggleFavorite, isFavorit
       friction: 5,
     }).start();
   };
-
 
   return (
     <Animated.View
@@ -205,13 +193,11 @@ const AnimatedProductCard = ({ item, index, onPress, onToggleFavorite, isFavorit
             style={styles.cardGradient}
           />
 
-
           {item.stock === 0 && (
             <View style={styles.outOfStockBadge}>
               <Text style={styles.outOfStockText}>AGOTADO</Text>
             </View>
           )}
-
 
           <TouchableOpacity
             style={styles.heartButton}
@@ -225,7 +211,6 @@ const AnimatedProductCard = ({ item, index, onPress, onToggleFavorite, isFavorit
             />
           </TouchableOpacity>
         </View>
-
 
         <View style={styles.infoBox}>
           <Text style={styles.cardBrand} numberOfLines={1}>
@@ -246,7 +231,6 @@ const AnimatedProductCard = ({ item, index, onPress, onToggleFavorite, isFavorit
   );
 };
 
-
 export default function MarcaScreen() {
   const router = useRouter();
   const apiUrl = useApi();
@@ -255,19 +239,20 @@ export default function MarcaScreen() {
   const [loading, setLoading] = useState(true);
   const [searchText, setSearchText] = useState("");
   const [filterType, setFilterType] = useState("Todos");
+  const [filterGender, setFilterGender] = useState("Todos"); // ✨ NUEVO FILTRO GÉNERO
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [favoritos, setFavoritos] = useState<any[]>([]);
   const [cartCount, setCartCount] = useState(0);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState(0); // ✨ GUARDAR POSICIÓN
   
   const slideAnim = useRef(new Animated.Value(height)).current;
   const heartScale = useRef(new Animated.Value(1)).current;
   const modalFlatListRef = useRef<FlatList>(null);
-
+  const mainFlatListRef = useRef<FlatList>(null); // ✨ REF PARA LISTA PRINCIPAL
 
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
-
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_400Regular,
@@ -276,14 +261,12 @@ export default function MarcaScreen() {
   });
 
   const tipoEquivalencias: Record<number, string> = {
-  1: "Perfume",          // ✅ Correcto
-  2: "Eau de Parfum",    // ✅ Correcto
-  3: "Eau de Toilette",  // ✅ Correcto
-  4: "Eau de Cologne",   // ✅ Correcto
-  5: "Eau Fraîche",      // ✅ Correcto
-};
-
-
+    1: "Perfume",
+    2: "Eau de Parfum",
+    3: "Eau de Toilette",
+    4: "Eau de Cologne",
+    5: "Eau Fraîche",
+  };
 
   const showToast = (message: string, type = "success") => {
     if (Platform.OS === 'ios' || Platform.OS === 'android') {
@@ -292,51 +275,47 @@ export default function MarcaScreen() {
     setToast({ visible: true, message, type });
   };
 
-useEffect(() => {
-  if (!marca || !apiUrl) return;
-  
-  const fetchData = async () => {
-    try {
-      console.log('📡 Conectando a:', apiUrl);
-      
-      const res = await fetch(`${apiUrl}/api/productos/`);
-      const allProducts = await res.json();
-      
-      // ✅ Normalizar: quitar guiones y lowercase
-      const normalize = (str: string) => 
-        str.replace(/-/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
-      
-      const marcaNormalizada = normalize(typeof marca === 'string' ? marca : String(marca));
-      
-      console.log('🔍 Buscando marca:', marcaNormalizada);
-      
-      // ✅ Filtrar comparando ambos normalizados
-      const marcaProducts = allProducts.filter((p: any) => {
-        const marcaProducto = normalize(p.marca_nombre || '');
-        return marcaProducto === marcaNormalizada;
-      });
-      
-      setProductos(marcaProducts);
-      console.log(`✅ Productos cargados: ${marcaProducts.length} de ${marca}`);
-    } catch (error) {
-      console.error('❌ Error cargando productos:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (!marca || !apiUrl) return;
+    
+    const fetchData = async () => {
+      try {
+        console.log('📡 Conectando a:', apiUrl);
+        
+        const res = await fetch(`${apiUrl}/api/productos/`);
+        const allProducts = await res.json();
+        
+        const normalize = (str: string) => 
+          str.replace(/-/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+        
+        const marcaNormalizada = normalize(typeof marca === 'string' ? marca : String(marca));
+        
+        console.log('🔍 Buscando marca:', marcaNormalizada);
+        
+        const marcaProducts = allProducts.filter((p: any) => {
+          const marcaProducto = normalize(p.marca_nombre || '');
+          return marcaProducto === marcaNormalizada;
+        });
+        
+        setProductos(marcaProducts);
+        console.log(`✅ Productos cargados: ${marcaProducts.length} de ${marca}`);
+      } catch (error) {
+        console.error('❌ Error cargando productos:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const loadStorage = async () => {
-    const cart = await getCart();
-    const favs = await getFavorites();
-    setFavoritos(favs);
-    setCartCount(cart.length);
-  };
+    const loadStorage = async () => {
+      const cart = await getCart();
+      const favs = await getFavorites();
+      setFavoritos(favs);
+      setCartCount(cart.length);
+    };
 
-  fetchData();
-  loadStorage();
-}, [marca, apiUrl]);
-
-
+    fetchData();
+    loadStorage();
+  }, [marca, apiUrl]);
 
   useEffect(() => {
     const handleFavChange = async () => {
@@ -347,13 +326,23 @@ useEffect(() => {
     return () => storageEvents.off("favoritesChanged", handleFavChange);
   }, []);
 
-
-  const filteredPerfumes = productos.filter(
-    (p) =>
-      (filterType === "Todos" || tipoEquivalencias[p.tipo] === filterType) &&
-      p.nombre.toLowerCase().includes(searchText.toLowerCase())
-  );
-
+  // ✨ FILTROS MEJORADOS CON GÉNERO
+  const filteredPerfumes = productos.filter((p) => {
+    const matchesType = filterType === "Todos" || tipoEquivalencias[p.tipo] === filterType;
+    const matchesSearch = p.nombre.toLowerCase().includes(searchText.toLowerCase());
+    
+    // ✨ FILTRO DE GÉNERO
+    const genero = (p.genero || '').toLowerCase().trim();
+    let matchesGender = true;
+    
+    if (filterGender === "Mujeres") {
+      matchesGender = genero === 'femenino' || genero === 'mujer' || genero === 'f';
+    } else if (filterGender === "Hombres") {
+      matchesGender = genero === 'masculino' || genero === 'hombre' || genero === 'm';
+    }
+    
+    return matchesType && matchesSearch && matchesGender;
+  });
 
   const openModal = (index: number) => {
     setSelectedIndex(index);
@@ -367,7 +356,6 @@ useEffect(() => {
       tension: 50,
     }).start();
 
-
     setTimeout(() => {
       modalFlatListRef.current?.scrollToIndex({ 
         index, 
@@ -376,60 +364,61 @@ useEffect(() => {
     }, 100);
   };
 
-
+  // ✨ CERRAR MODAL SIN REINICIAR SCROLL
   const closeModal = () => {
     Animated.timing(slideAnim, {
       toValue: height,
       duration: 350,
       useNativeDriver: true,
       easing: Easing.in(Easing.cubic),
-    }).start(() => setIsModalVisible(false));
+    }).start(() => {
+      setIsModalVisible(false);
+      // ✨ RESTAURAR POSICIÓN AL CERRAR
+      setTimeout(() => {
+        mainFlatListRef.current?.scrollToOffset({ 
+          offset: scrollPosition, 
+          animated: false 
+        });
+      }, 50);
+    });
   };
 
+  const toggleFavorite = async (perfume: any) => {
+    const isFavNow = favoritos.some((f) => f.id === perfume.id);
 
-   const toggleFavorite = async (perfume: any) => {
-  const isFavNow = favoritos.some((f) => f.id === perfume.id);
+    try {
+      const updated = isFavNow
+        ? await removeFromFavorites(perfume.id)
+        : await addToFavorites(perfume);
+      
+      setFavoritos(updated);
 
-
-  try {
-    const updated = isFavNow
-      ? await removeFromFavorites(perfume.id)
-      : await addToFavorites(perfume);
-    
-    setFavoritos(updated);
-
-
-    // Solo animación del corazón (sin toast ni vibración)
-    Animated.sequence([
-      Animated.timing(heartScale, {
-        toValue: 0.88,
-        duration: 100,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-      Animated.timing(heartScale, {
-        toValue: 1.15,
-        duration: 150,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-      Animated.spring(heartScale, {
-        toValue: 1,
-        useNativeDriver: true,
-        friction: 4,
-        tension: 50,
-      }),
-    ]).start();
-    
-  } catch {
-    showToast("Error al actualizar favoritos", "error");
-  }
-};
-
-
+      Animated.sequence([
+        Animated.timing(heartScale, {
+          toValue: 0.88,
+          duration: 100,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.cubic),
+        }),
+        Animated.timing(heartScale, {
+          toValue: 1.15,
+          duration: 150,
+          useNativeDriver: true,
+          easing: Easing.out(Easing.cubic),
+        }),
+        Animated.spring(heartScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          friction: 4,
+          tension: 50,
+        }),
+      ]).start();
+    } catch {
+      showToast("Error al actualizar favoritos", "error");
+    }
+  };
 
   const isFavorite = (id: number) => favoritos.some((f) => f.id === id);
-
 
   const onModalViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
@@ -437,11 +426,9 @@ useEffect(() => {
     }
   }).current;
 
-
   const viewabilityConfig = useRef({
     itemVisiblePercentThreshold: 50
   }).current;
-
 
   const renderModalItem = ({ item }: any) => (
     <View style={styles.modalProductContainer}>
@@ -451,19 +438,16 @@ useEffect(() => {
           style={styles.modalFullImage}
         />
 
-
         <LinearGradient
           colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.5)']}
           style={styles.modalImageGradient}
         />
-
 
         {item.stock === 0 && (
           <View style={styles.outOfStockBadgeModal}>
             <Text style={styles.outOfStockTextModal}>AGOTADO</Text>
           </View>
         )}
-
 
         <TouchableOpacity
           style={styles.modalHeartButton}
@@ -479,7 +463,6 @@ useEffect(() => {
           </Animated.View>
         </TouchableOpacity>
       </View>
-
 
       <View style={styles.modalTextBoxFull}>
         <View style={styles.namePriceRow}>
@@ -498,9 +481,7 @@ useEffect(() => {
           </View>
         </View>
 
-
         <View style={styles.modalDivider} />
-
 
         <ScrollView 
           showsVerticalScrollIndicator={false}
@@ -510,7 +491,6 @@ useEffect(() => {
           <Text style={styles.modalDescription}>
             {item.descripcion || "Sin descripción disponible."}
           </Text>
-
 
           <View style={styles.modalInfoGrid}>
             <View style={styles.modalInfoItem}>
@@ -527,7 +507,6 @@ useEffect(() => {
             </View>
           </View>
         </ScrollView>
-
 
         <TouchableOpacity
           style={[
@@ -572,7 +551,6 @@ useEffect(() => {
     </View>
   );
 
-
   if (loading || !fontsLoaded)
     return (
       <View style={styles.loadingContainer}>
@@ -580,9 +558,7 @@ useEffect(() => {
       </View>
     );
 
-
   const displayMarca = typeof marca === 'string' ? marca.replace(/-/g, ' ') : marca;
-
 
   return (
     <View style={styles.container}>
@@ -593,15 +569,17 @@ useEffect(() => {
         onHide={() => setToast({ ...toast, visible: false })}
       />
 
-
       {!isModalVisible && (
         <FlatList
+          ref={mainFlatListRef}
           data={filteredPerfumes}
           keyExtractor={(item) => item.id.toString()}
           numColumns={2}
           columnWrapperStyle={styles.row}
           contentContainerStyle={{ paddingBottom: 120 }}
           showsVerticalScrollIndicator={false}
+          onScroll={(e) => setScrollPosition(e.nativeEvent.contentOffset.y)} // ✨ GUARDAR POSICIÓN
+          scrollEventThrottle={16}
           ListHeaderComponent={
             <>
               <View style={styles.header}>
@@ -621,13 +599,11 @@ useEffect(() => {
                 />
               </View>
 
-
               <View style={styles.titleContainer}>
                 <Text style={styles.title}>{displayMarca}</Text>
                 <View style={styles.titleDivider} />
                 <Text style={styles.subtitle}>Colección exclusiva</Text>
               </View>
-
 
               <View style={styles.searchContainer}>
                 <View style={[
@@ -660,7 +636,45 @@ useEffect(() => {
                 </View>
               </View>
 
+              {/* ✨ FILTRO DE GÉNERO */}
+              <ScrollView 
+                horizontal 
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.genderFiltersContainer}
+              >
+                {["All", "Mujeres", "Hombres"].map((gender) => (
+                  <TouchableOpacity
+                    key={gender}
+                    style={[
+                      styles.genderFilterButton,
+                      filterGender === gender && styles.genderFilterButtonActive,
+                    ]}
+                    onPress={() => setFilterGender(gender)}
+                    activeOpacity={0.8}
+                  >
+                    <Ionicons
+                      name={
+                        gender === "Mujeres" ? "" :
+                        gender === "Hombres" ? "" :
+                        ""
+                      }
+                      size={16}
+                      color={filterGender === gender ? "#fff" : "#666"}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={[
+                        styles.genderFilterText,
+                        filterGender === gender && styles.genderFilterTextActive,
+                      ]}
+                    >
+                      {gender}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
 
+              {/* ✨ FILTROS DE TIPO */}
               <ScrollView 
                 horizontal 
                 showsHorizontalScrollIndicator={false}
@@ -668,11 +682,11 @@ useEffect(() => {
               >
                 {[
                   "Todos",
-  "Perfume",           // ✅ Cambiar de "Parfum" a "Perfume"
-  "Eau de Parfum",
-  "Eau de Toilette",
-  "Eau de Cologne",
-  "Eau Fraîche",
+                  "Perfume",
+                  "Eau de Parfum",
+                  "Eau de Toilette",
+                  "Eau de Cologne",
+                  "Eau Fraîche",
                 ].map((type) => (
                   <TouchableOpacity
                     key={type}
@@ -695,7 +709,6 @@ useEffect(() => {
                 ))}
               </ScrollView>
 
-
               <View style={styles.resultsContainer}>
                 <Text style={styles.resultsText}>
                   {filteredPerfumes.length} {filteredPerfumes.length === 1 ? 'producto' : 'productos'}
@@ -716,7 +729,6 @@ useEffect(() => {
         />
       )}
 
-
       {isModalVisible && (
         <Modal visible transparent animationType="none">
           <View style={styles.modalBackdrop}>
@@ -733,7 +745,6 @@ useEffect(() => {
                 onHide={() => setToast({ ...toast, visible: false })}
               />
 
-
               <TouchableOpacity 
                 onPress={closeModal} 
                 style={styles.backArrow}
@@ -743,7 +754,6 @@ useEffect(() => {
                   <Ionicons name="arrow-back" size={24} color="#fff" />
                 </View>
               </TouchableOpacity>
-
 
               <FlatList
                 ref={modalFlatListRef}
@@ -766,13 +776,10 @@ useEffect(() => {
                 snapToInterval={width}
                 snapToAlignment="center"
               />
-
-
             </Animated.View>
           </View>
         </Modal>
       )}
-
 
       <FancyTabBar
         cartCount={cartCount}
@@ -798,7 +805,6 @@ useEffect(() => {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: { 
@@ -865,7 +871,7 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     marginHorizontal: 20,
-    marginBottom: 20,
+    marginBottom: 15,
   },
   searchInputWrapper: {
     flexDirection: "row",
@@ -898,6 +904,37 @@ const styles = StyleSheet.create({
     color: "#000",
     letterSpacing: 0.3,
   },
+  
+  // ✨ FILTROS DE GÉNERO
+  genderFiltersContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    gap: 10,
+  },
+  genderFilterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#f5f5f5",
+    borderRadius: 25,
+    borderWidth: 1,
+    borderColor: "#e8e8e8",
+  },
+  genderFilterButtonActive: { 
+    backgroundColor: "#000",
+    borderColor: "#000",
+  },
+  genderFilterText: { 
+    fontSize: 13,
+    color: "#666",
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    letterSpacing: 0.5,
+  },
+  genderFilterTextActive: { 
+    color: "#fff" 
+  },
+  
   filtersContainer: {
     paddingHorizontal: 20,
     paddingBottom: 15,
