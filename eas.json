@@ -11,8 +11,7 @@
     "preview": {
       "distribution": "internal",
       "android": {
-        "buildType": "apk",
-        "prebuildCommand": "npm install --legacy-peer-deps"
+        "buildType": "apk"
       }
     },
     "production": {
