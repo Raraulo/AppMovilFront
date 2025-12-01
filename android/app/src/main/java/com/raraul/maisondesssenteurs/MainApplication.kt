@@ -1,4 +1,4 @@
-package com.anonymous.AppNueva
+package com.raraul.maisondesssenteurs
 
 import android.app.Application
 import android.content.res.Configuration

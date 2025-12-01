@@ -1,4 +1,4 @@
-package com.anonymous.AppNueva
+package com.raraul.maisondesssenteurs
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
