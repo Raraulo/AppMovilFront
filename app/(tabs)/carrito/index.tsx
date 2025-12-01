@@ -1,10 +1,4 @@
-// app/(tabs)/checkout.tsx
-import {
-  PlayfairDisplay_400Regular,
-  PlayfairDisplay_600SemiBold,
-  PlayfairDisplay_700Bold,
-  useFonts,
-} from "@expo-google-fonts/playfair-display";
+// app/(tabs)/carrito/index.tsx
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
@@ -42,6 +36,11 @@ import {
 } from "../../../utils/storage";
 
 const { width, height } = Dimensions.get("window");
+
+// 🎨 TIPOGRAFÍA PREMIUM NATIVA
+const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
+const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
 
 const CARD_COLORS = [
   ['#0f172a', '#1e293b'],
@@ -309,12 +308,6 @@ const IncompleteProfileNotification = ({ visible, onClose, onUpdate }: any) => {
 // ==================== COMPONENTE PRINCIPAL ====================
 export default function CarritoScreen() {
   const apiUrl = useApi();
-
-  const [fontsLoaded] = useFonts({
-    PlayfairDisplay_400Regular,
-    PlayfairDisplay_600SemiBold,
-    PlayfairDisplay_700Bold,
-  });
 
   const [cart, setCart] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -775,7 +768,7 @@ export default function CarritoScreen() {
           collection(db, "usuarios", destinoId, "transacciones")
         );
         transaction.set(transaccionDestinoRef, {
-          tipo: "recibido",
+          tipo: "recepcion",
           monto: total,
           remitente: `${userSnap.data().nombre} ${userSnap.data().apellido}`,
           razon: `Venta de ${cart.length} productos`,
@@ -912,7 +905,7 @@ export default function CarritoScreen() {
     setConfirmModal({
       visible: true,
       title: "Confirmar compra",
-      message: `IMPORTANTE: No existe reembolso una vez confirmada la compra.\n\nVas a pagar €${total.toFixed(
+      message: `IMPORTANTE: No existe reembolso una vez confirmada la compra.\n\nVas a pagar ${total.toFixed(
         2
       )} (${cart.length} ${cart.length === 1 ? 'producto' : 'productos'}).\n\n¿Deseas continuar?`,
       onConfirm: procesarPagoWawallet,
@@ -1062,14 +1055,6 @@ export default function CarritoScreen() {
       </View>
     );
   };
-
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#000" />
-      </View>
-    );
-  }
 
   return (
     <>
@@ -1255,7 +1240,7 @@ export default function CarritoScreen() {
                     <>
                       <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
                       <Text style={styles.confirmText}>
-                        Pagar €{calcularTotal()}
+                        Pagar ${calcularTotal()}
                       </Text>
                     </>
                   )}
@@ -1303,7 +1288,6 @@ export default function CarritoScreen() {
                   <Ionicons name="checkmark" size={100} color="#fff" />
                 </Animated.View>
               </Animated.View>
-
               <Animated.View
                 style={[
                   styles.successTextContainer,
@@ -1342,163 +1326,102 @@ export default function CarritoScreen() {
   );
 }
 
-// ==================== ESTILOS ====================
+// ✨ ESTILOS
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-  loadingText: { fontFamily: 'PlayfairDisplay_400Regular', fontSize: 13, color: '#666', marginTop: 12 },
+  loadingText: { fontFamily: FONT_BODY, fontSize: 13, color: "#666", marginTop: 12 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 50, paddingHorizontal: 20, marginBottom: 20 },
   backButton: { width: 44 },
   backButtonContainer: { backgroundColor: "#f5f5f5", borderRadius: 24, padding: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  title: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: "#111", letterSpacing: 2 },
+  title: { fontFamily: FONT_TITLE, fontSize: 20, color: "#111", letterSpacing: 2, fontWeight: '700' },
   emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 40 },
   emptyIconContainer: { marginBottom: 30 },
-  emptyTitle: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 28, color: "#111", marginBottom: 15, textAlign: "center", letterSpacing: 1 },
-  emptySubtitle: { fontFamily: "PlayfairDisplay_400Regular", fontSize: 15, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 40 },
+  emptyTitle: { fontFamily: FONT_TITLE, fontSize: 28, color: "#111", marginBottom: 15, textAlign: "center", letterSpacing: 1, fontWeight: '700' },
+  emptySubtitle: { fontFamily: FONT_BODY, fontSize: 15, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 40 },
   loginButton: { backgroundColor: "#000", paddingHorizontal: 30, paddingVertical: 18, borderRadius: 30, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
-  loginButtonText: { fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1, textTransform: "uppercase" },
+  loginButtonText: { fontFamily: FONT_MODERN, fontSize: 14, color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontWeight: '600' },
   exploreButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#000", paddingHorizontal: 30, paddingVertical: 16, borderRadius: 30, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
-  exploreButtonText: { fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 14, color: "#fff", letterSpacing: 1, textTransform: "uppercase" },
+  exploreButtonText: { fontFamily: FONT_MODERN, fontSize: 14, color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontWeight: '600' },
   listContainer: { paddingBottom: 200, paddingHorizontal: 20, paddingTop: 10 },
   cardContainer: { width: "100%", marginBottom: 16 },
   card: { flexDirection: "row", backgroundColor: "#fff", borderRadius: 12, padding: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4 },
   imageContainer: { position: "relative", width: 90, height: 120, borderRadius: 8, overflow: "hidden" },
   image: { width: "100%", height: "100%" },
   imageGradient: { position: "absolute", width: "100%", height: "100%" },
-  outOfStockBadge: { position: "absolute", top: 40, left: 0, right: 0, backgroundColor: "rgba(239, 68, 68, 0.96)", paddingVertical: 6, alignItems: "center" },
-  outOfStockText: { color: "#fff", fontFamily: "PlayfairDisplay_700Bold", fontSize: 10, letterSpacing: 1.5 },
+  outOfStockBadge: { position: "absolute", top: "40%", left: 0, right: 0, backgroundColor: "rgba(239, 68, 68, 0.96)", paddingVertical: 6, alignItems: "center" },
+  outOfStockText: { color: "#fff", fontFamily: FONT_MODERN, fontSize: 10, letterSpacing: 1.5, fontWeight: '700' },
   infoBox: { flex: 1, paddingLeft: 14, justifyContent: "space-between" },
-  cardBrand: { fontFamily: "PlayfairDisplay_400Regular", fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
-  cardName: { fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 15, color: "#111", lineHeight: 20, marginBottom: 8 },
-  totalItemText: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 18, color: "#000", marginBottom: 6 },
-  stockText: { fontFamily: "PlayfairDisplay_400Regular", fontSize: 11, color: "#10B981", marginBottom: 10 },
+  cardBrand: { fontFamily: FONT_BODY, fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
+  cardName: { fontFamily: FONT_MODERN, fontSize: 15, color: "#111", lineHeight: 20, marginBottom: 8, fontWeight: '600' },
+  totalItemText: { fontFamily: FONT_TITLE, fontSize: 18, color: "#000", marginBottom: 6, fontWeight: '700' },
+  stockText: { fontFamily: FONT_BODY, fontSize: 11, color: "#10B981", marginBottom: 10 },
   stockTextDanger: { color: "#EF4444" },
   stockTextWarning: { color: "#F59E0B" },
   quantityContainer: { flexDirection: "row", alignItems: "center", borderRadius: 8, borderWidth: 1.5, borderColor: "#e8e8e8", alignSelf: "flex-start", backgroundColor: "#fafafa" },
   quantityButton: { paddingHorizontal: 12, paddingVertical: 8 },
   quantityButtonDisabled: { opacity: 0.4 },
-  quantity: { marginHorizontal: 12, fontFamily: "PlayfairDisplay_700Bold", fontSize: 16, color: "#111", minWidth: 20, textAlign: "center" },
+  quantity: { marginHorizontal: 12, fontFamily: FONT_TITLE, fontSize: 16, color: "#111", minWidth: 20, textAlign: "center", fontWeight: '700' },
   deleteButton: { justifyContent: "center", alignItems: "center", paddingLeft: 12 },
   deleteButtonContainer: { backgroundColor: "#fee", borderRadius: 8, padding: 8 },
-  footerFixed: { position: "absolute", bottom: Platform.OS === "ios" ? 80 : 60, left: 0, right: 0, backgroundColor: "#fff", borderTopWidth: 1, borderColor: "#f0f0f0", paddingTop: 20, paddingHorizontal: 20, paddingBottom: Platform.OS === "ios" ? 25 : 20, shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 10 },
+  footerFixed: { position: "absolute", bottom: Platform.OS === 'ios' ? 80 : 60, left: 0, right: 0, backgroundColor: "#fff", borderTopWidth: 1, borderColor: "#f0f0f0", paddingTop: 20, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 25 : 20, shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 10 },
   summaryContainer: { marginBottom: 16 },
   totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  totalLabelFinal: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 20, color: "#000" },
-  totalPriceFinal: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 24, color: "#000" },
+  totalLabelFinal: { fontFamily: FONT_TITLE, fontSize: 20, color: "#000", fontWeight: '700' },
+  totalPriceFinal: { fontFamily: FONT_TITLE, fontSize: 24, color: "#000", fontWeight: '700' },
   checkoutButton: { flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#000", paddingVertical: 16, borderRadius: 30, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
-  checkoutButtonText: { color: "#fff", fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 15, letterSpacing: 1, textTransform: "uppercase" },
+  checkoutButtonText: { color: "#fff", fontFamily: FONT_MODERN, fontSize: 15, letterSpacing: 1, textTransform: "uppercase", fontWeight: '600' },
   modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" },
   modalContent: { backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: "90%", width: "100%" },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
-  modalTitle: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 22, color: "#111", letterSpacing: 1 },
+  modalTitle: { fontFamily: FONT_TITLE, fontSize: 22, color: "#111", letterSpacing: 1, fontWeight: '700' },
   wawalletCardContainer: { marginBottom: 20 },
   loadingCard: { padding: 40, alignItems: "center" },
   wawalletCard: { position: "relative", borderRadius: 16, padding: 24, marginBottom: 20, overflow: "hidden", height: 180 },
   cardGradientBg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
   wawalletCardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-  wawalletCardTitle: { color: "#fff", fontSize: 24, fontFamily: "PlayfairDisplay_700Bold", marginLeft: 12, letterSpacing: 2 },
+  wawalletCardTitle: { color: "#fff", fontSize: 24, fontFamily: FONT_TITLE, marginLeft: 12, letterSpacing: 2, fontWeight: '700' },
   wawalletCardNumber: { color: "#fff", fontSize: 20, fontFamily: "monospace", fontWeight: "700", letterSpacing: 2, marginBottom: 16 },
-  wawalletCardOwner: { color: "rgba(255,255,255,0.7)", fontSize: 14, fontFamily: "PlayfairDisplay_400Regular", textTransform: "uppercase", letterSpacing: 1 },
+  wawalletCardOwner: { color: "rgba(255,255,255,0.7)", fontSize: 14, fontFamily: FONT_BODY, textTransform: "uppercase", letterSpacing: 1 },
   warningBox: { flexDirection: "row", alignItems: "center", backgroundColor: "#FEF3C7", padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: "#FDE68A" },
-  warningText: { marginLeft: 12, fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 13, color: "#92400E", flex: 1, lineHeight: 20 },
+  warningText: { marginLeft: 12, fontFamily: FONT_MODERN, fontSize: 13, color: "#92400E", flex: 1, lineHeight: 20, fontWeight: '600' },
   changeTarjetaButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12 },
-  changeTarjetaText: { color: "#000", fontSize: 14, fontFamily: "PlayfairDisplay_600SemiBold", textDecorationLine: "underline", marginLeft: 8 },
+  changeTarjetaText: { color: "#000", fontSize: 14, fontFamily: FONT_MODERN, textDecorationLine: "underline", marginLeft: 8, fontWeight: '600' },
   addTarjetaButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#f5f5f5", padding: 20, borderRadius: 16, borderWidth: 2, borderColor: "#e8e8e8", borderStyle: "dashed" },
-  addTarjetaText: { fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 15, marginLeft: 12, color: "#000" },
+  addTarjetaText: { fontFamily: FONT_MODERN, fontSize: 15, marginLeft: 12, color: "#000", fontWeight: '600' },
   confirmButton: { flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#000", paddingVertical: 18, borderRadius: 30, marginTop: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   confirmButtonDisabled: { backgroundColor: "#d1d5db", shadowOpacity: 0 },
-  confirmText: { color: "#fff", fontFamily: "PlayfairDisplay_700Bold", fontSize: 16, letterSpacing: 1 },
+  confirmText: { color: "#fff", fontFamily: FONT_TITLE, fontSize: 16, letterSpacing: 1, fontWeight: '700' },
   successOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" },
   successContainer: { alignItems: "center", justifyContent: "center" },
   mainCircle: { width: 220, height: 220, borderRadius: 110, backgroundColor: "#10B981", justifyContent: "center", alignItems: "center" },
   checkmarkContainer: { justifyContent: "center", alignItems: "center" },
   successTextContainer: { alignItems: "center", paddingHorizontal: 40, marginTop: 50 },
-  successTitle: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 34, color: "#fff", letterSpacing: 1.5, marginBottom: 16, textAlign: "center" },
-  successSubtitle: { fontFamily: "PlayfairDisplay_400Regular", fontSize: 16, color: "#aaa", letterSpacing: 0.5, textAlign: "center", lineHeight: 24 },
+  successTitle: { fontFamily: FONT_TITLE, fontSize: 34, color: "#fff", letterSpacing: 1.5, marginBottom: 16, textAlign: "center", fontWeight: '700' },
+  successSubtitle: { fontFamily: FONT_BODY, fontSize: 16, color: "#aaa", letterSpacing: 0.5, textAlign: "center", lineHeight: 24 },
   toastContainer: { position: "absolute", top: 0, left: 20, right: 20, borderRadius: 16, zIndex: 999999, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 999 },
   toastContent: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 16 },
-  toastText: { color: "#fff", fontSize: 14, fontFamily: "PlayfairDisplay_600SemiBold", marginLeft: 12, flex: 1, letterSpacing: 0.3 },
-  
-  incompleteNotificationContainer: {
-    position: 'absolute',
-    top: 10,
-    left: 15,
-    right: 15,
-    zIndex: 999998,
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 998,
-  },
-  incompleteNotificationGradient: {
-    padding: 16,
-  },
-  incompleteNotificationContent: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-  },
-  incompleteNotificationIconContainer: {
-    marginRight: 12,
-    marginTop: 2,
-  },
-  incompleteNotificationTextContainer: {
-    flex: 1,
-  },
-  incompleteNotificationTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 16,
-    color: "#fff",
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  incompleteNotificationMessage: {
-    fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 13,
-    color: "#fff",
-    opacity: 0.95,
-    lineHeight: 18,
-  },
-  incompleteNotificationActions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  incompleteNotificationButtonSecondary: {
-    flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  incompleteNotificationButtonSecondaryText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 13,
-    color: "#fff",
-  },
-  incompleteNotificationButtonPrimary: {
-    flex: 1,
-    backgroundColor: "#fff",
-    paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  incompleteNotificationButtonPrimaryText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 13,
-    color: "#DC2626",
-  },
-
+  toastText: { color: "#fff", fontSize: 14, fontFamily: FONT_MODERN, marginLeft: 12, flex: 1, letterSpacing: 0.3, fontWeight: '600' },
+  incompleteNotificationContainer: { position: "absolute", top: 10, left: 15, right: 15, zIndex: 999998, borderRadius: 16, overflow: "hidden", shadowColor: "#EF4444", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 998 },
+  incompleteNotificationGradient: { padding: 16 },
+  incompleteNotificationContent: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12 },
+  incompleteNotificationIconContainer: { marginRight: 12, marginTop: 2 },
+  incompleteNotificationTextContainer: { flex: 1 },
+  incompleteNotificationTitle: { fontFamily: FONT_TITLE, fontSize: 16, color: "#fff", marginBottom: 4, letterSpacing: 0.5, fontWeight: '700' },
+  incompleteNotificationMessage: { fontFamily: FONT_BODY, fontSize: 13, color: "#fff", opacity: 0.95, lineHeight: 18 },
+  incompleteNotificationActions: { flexDirection: "row", gap: 10 },
+  incompleteNotificationButtonSecondary: { flex: 1, backgroundColor: "rgba(255,255,255,0.2)", paddingVertical: 10, borderRadius: 8, alignItems: "center" },
+  incompleteNotificationButtonSecondaryText: { fontFamily: FONT_MODERN, fontSize: 13, color: "#fff", fontWeight: '600' },
+  incompleteNotificationButtonPrimary: { flex: 1, backgroundColor: "#fff", paddingVertical: 10, borderRadius: 8, alignItems: "center" },
+  incompleteNotificationButtonPrimaryText: { fontFamily: FONT_MODERN, fontSize: 13, color: "#DC2626", fontWeight: '600' },
   confirmModalBackdrop: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.75)", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 },
   confirmModalContainer: { backgroundColor: "#fff", borderRadius: 24, padding: 32, width: "100%", maxWidth: 400, shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 20 },
   confirmIconCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: "#f5f5f5", justifyContent: "center", alignItems: "center", alignSelf: "center", marginBottom: 24 },
-  confirmTitle: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 24, color: "#111", textAlign: "center", marginBottom: 16, letterSpacing: 0.5 },
-  confirmMessage: { fontFamily: "PlayfairDisplay_400Regular", fontSize: 15, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 32 },
+  confirmTitle: { fontFamily: FONT_TITLE, fontSize: 24, color: "#111", textAlign: "center", marginBottom: 16, letterSpacing: 0.5, fontWeight: '700' },
+  confirmMessage: { fontFamily: FONT_BODY, fontSize: 15, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 32 },
   confirmButtons: { gap: 12 },
   confirmConfirmButton: { backgroundColor: "#111", paddingVertical: 16, borderRadius: 16, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
-  confirmConfirmText: { fontFamily: "PlayfairDisplay_700Bold", fontSize: 16, color: "#fff", letterSpacing: 0.5 },
+  confirmConfirmText: { fontFamily: FONT_TITLE, fontSize: 16, color: "#fff", letterSpacing: 0.5, fontWeight: '700' },
   confirmCancelButton: { backgroundColor: "#f5f5f5", paddingVertical: 16, borderRadius: 16, alignItems: "center" },
-  confirmCancelText: { fontFamily: "PlayfairDisplay_600SemiBold", fontSize: 16, color: "#666", letterSpacing: 0.5 },
+  confirmCancelText: { fontFamily: FONT_MODERN, fontSize: 16, color: "#666", letterSpacing: 0.5, fontWeight: '600' },
 });

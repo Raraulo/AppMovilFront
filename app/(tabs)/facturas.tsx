@@ -1,10 +1,4 @@
 // app/(tabs)/facturas.tsx
-import {
-  PlayfairDisplay_400Regular,
-  PlayfairDisplay_600SemiBold,
-  PlayfairDisplay_700Bold,
-  useFonts,
-} from "@expo-google-fonts/playfair-display";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from "expo-print";
@@ -32,6 +26,11 @@ import { getApiUrl } from "../../config";
 
 const { width, height } = Dimensions.get("window");
 
+// 🎨 TIPOGRAFÍA PREMIUM NATIVA
+const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
+const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
+
 interface Producto {
   id: number;
   nombre: string;
@@ -55,9 +54,9 @@ interface Factura {
     nombre: string;
     apellido: string;
     email: string;
-    cedula?: string;      // ✅ NUEVO
-    direccion?: string;   // ✅ NUEVO
-    celular?: string;     // ✅ NUEVO
+    cedula?: string;
+    direccion?: string;
+    celular?: string;
   };
 }
 
@@ -152,12 +151,6 @@ const FacturaListItem = ({ factura, onPress, index }: any) => {
 export default function FacturasScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  const [fontsLoaded] = useFonts({
-    PlayfairDisplay_400Regular,
-    PlayfairDisplay_600SemiBold,
-    PlayfairDisplay_700Bold,
-  });
 
   const [isLogged, setIsLogged] = useState(false);
   const [facturas, setFacturas] = useState<Factura[]>([]);
@@ -544,14 +537,6 @@ export default function FacturasScreen() {
     }
   };
 
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#000" />
-      </View>
-    );
-  }
-
   // 🔒 NO LOGUEADO
   if (!isLogged) {
     return (
@@ -830,14 +815,15 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   notLoggedTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 28,
     color: "#111",
     marginBottom: 15,
     letterSpacing: 1,
+    fontWeight: '700',
   },
   notLoggedText: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 15,
     color: "#666",
     textAlign: "center",
@@ -859,11 +845,12 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   loginText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     color: "#fff",
     fontSize: 14,
     letterSpacing: 1,
     textTransform: 'uppercase',
+    fontWeight: '600',
   },
 
   // ✨ LOADING
@@ -875,9 +862,10 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 15,
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 15,
     color: "#666",
+    fontWeight: '600',
   },
 
   // ✨ HEADER
@@ -906,10 +894,11 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   headerTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 20,
     color: "#111",
     letterSpacing: 2,
+    fontWeight: '700',
   },
 
   // ✨ LISTA SIMPLE
@@ -923,13 +912,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   listTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 16,
     color: "#111",
     letterSpacing: 0.5,
+    fontWeight: '600',
   },
   listCount: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 13,
     color: "#999",
   },
@@ -942,13 +932,14 @@ const styles = StyleSheet.create({
     marginBottom: 25,
   },
   emptyText: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 24,
     color: "#111",
     marginBottom: 10,
+    fontWeight: '700',
   },
   emptySubtext: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 15,
     color: "#999",
   },
@@ -988,14 +979,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listItemOrder: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 15,
     color: "#000",
     marginBottom: 4,
     letterSpacing: 0.3,
+    fontWeight: '600',
   },
   listItemDate: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 13,
     color: "#666",
     marginBottom: 8,
@@ -1010,7 +1002,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   listItemMetaText: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 12,
     color: "#999",
   },
@@ -1019,10 +1011,11 @@ const styles = StyleSheet.create({
     marginLeft: 12,
   },
   listItemTotal: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 18,
     color: "#000",
     marginBottom: 8,
+    fontWeight: '700',
   },
   chevronButton: {
     width: 28,
@@ -1064,7 +1057,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   detailInfoLabel: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 12,
     color: "#999",
     marginBottom: 6,
@@ -1072,9 +1065,10 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   detailInfoValue: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 15,
     color: "#000",
+    fontWeight: '600',
   },
   dividerLine: {
     height: 1,
@@ -1085,7 +1079,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   sectionLabel: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 12,
     color: "#999",
     marginBottom: 8,
@@ -1093,13 +1087,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   clienteNombre: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 16,
     color: "#000",
     marginBottom: 8,
+    fontWeight: '600',
   },
   clienteEmail: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 13,
     color: "#666",
   },
@@ -1111,17 +1106,18 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   clienteInfoText: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 13,
     color: "#666",
     flex: 1,
   },
   sectionTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 16,
     color: "#000",
     marginBottom: 16,
     letterSpacing: 0.5,
+    fontWeight: '700',
   },
   productoItem: {
     flexDirection: "row",
@@ -1146,20 +1142,21 @@ const styles = StyleSheet.create({
     marginLeft: 14,
   },
   productoNombre: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 15,
     color: "#000",
     marginBottom: 4,
     lineHeight: 20,
+    fontWeight: '600',
   },
   productoMarca: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 12,
     color: "#999",
     marginBottom: 2,
   },
   productoTipo: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 12,
     color: "#666",
     marginBottom: 6,
@@ -1169,15 +1166,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   productoCantidad: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 13,
     color: "#666",
   },
   productoSubtotal: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 16,
     color: "#000",
     marginLeft: 12,
+    fontWeight: '700',
   },
   resumenContainer: {
     backgroundColor: '#fafafa',
@@ -1191,14 +1189,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   resumenLabel: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 14,
     color: "#666",
   },
   resumenValue: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 14,
     color: "#000",
+    fontWeight: '600',
   },
   dividerDashed: {
     height: 1,
@@ -1213,14 +1212,16 @@ const styles = StyleSheet.create({
     paddingTop: 12,
   },
   resumenLabelTotal: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 18,
     color: "#000",
+    fontWeight: '700',
   },
   resumenValueTotal: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 22,
     color: "#000",
+    fontWeight: '700',
   },
   pagoMethodContainer: {
     flexDirection: 'row',
@@ -1231,7 +1232,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   pagoMethodText: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 14,
     color: "#666",
   },
@@ -1251,9 +1252,10 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   shareText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     color: "#fff",
     fontSize: 15,
     letterSpacing: 1,
+    fontWeight: '600',
   },
 });

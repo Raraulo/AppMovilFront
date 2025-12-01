@@ -1,86 +1,82 @@
 import { Ionicons } from "@expo/vector-icons";
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Tabs, usePathname, useRouter } from "expo-router";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Platform,
   Pressable,
   StyleSheet,
   Text,
-  View,
+  View
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { getCart, storageEvents } from "../../utils/storage";
 
-
-// 🎨 Definiciones de color y tamaño
-const ICON_SIZE = 28;
-const ICON_COLOR = "#000000";
-const ICON_COLOR_INACTIVE = "#999999";
-const BADGE_COLOR = "#FF3B5C";
-
+// 🎨 TEMA "WHITE CLOTH" (TELA BLANCA)
+const ACTIVE_ICON_COLOR = "#FFFFFF"; // Blanco puro
+const INACTIVE_ICON_COLOR = "#999999"; // Gris elegante
+const ACTIVE_PILL_COLOR = "#1C1C1E"; // Negro suave (Estilo iOS)
+const BADGE_COLOR = "#FF3B30"; 
 
 /* -------------------------------------------------------
-    🧩 Subcomponente TabItem (ultra mejorado)
+    🪄 Componente Especial: LUPA AI (Custom Icon)
+--------------------------------------------------------*/
+const AiSearchIcon = ({ color, size }: { color: string, size: number }) => (
+  <View style={{ width: size, height: size, justifyContent: 'center', alignItems: 'center' }}>
+    {/* La Lupa base */}
+    <Ionicons name="search" size={size} color={color} style={{ marginRight: 2, marginBottom: 2 }} />
+    
+    {/* Las "Chispas AI" superpuestas */}
+    <Ionicons 
+      name="sparkles" 
+      size={size * 0.45} 
+      color={color} 
+      style={{ 
+        position: 'absolute', 
+        top: -2, 
+        right: -4,
+        opacity: 0.9
+      }} 
+    />
+  </View>
+);
+
+/* -------------------------------------------------------
+    ⚡ TabItem Ultra-Fluido
 --------------------------------------------------------*/
 function TabItem({ route, index, state, navigation, cartCount, isAiButton }: any) {
   const router = useRouter();
   const pathname = usePathname();
   
-  // ✨ Para el botón AI, verifica si estamos en la ruta de Giulia
   const isFocused = isAiButton 
     ? pathname.includes('/ia/giulia')
     : state.index === index;
     
-  const scale = useRef(new Animated.Value(1)).current;
-  const translateY = useRef(new Animated.Value(0)).current;
-  const glowOpacity = useRef(new Animated.Value(0)).current;
-  const iconOpacity = useRef(new Animated.Value(isFocused ? 1 : 0.6)).current;
+  // Animaciones rápidas ("Snappy")
+  const scale = useRef(new Animated.Value(isFocused ? 1 : 1)).current;
+  const translateY = useRef(new Animated.Value(isFocused ? 0 : 0)).current;
+  const pillOpacity = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
   useEffect(() => {
+    const springConfig = { friction: 14, tension: 180, useNativeDriver: true };
+    const timingConfig = { duration: 200, useNativeDriver: true };
+
     Animated.parallel([
-      Animated.spring(scale, {
-        toValue: isFocused ? 1.15 : 1,
-        friction: 6,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-      Animated.spring(translateY, {
-        toValue: isFocused ? -4 : 0,
-        friction: 7,
-        tension: 80,
-        useNativeDriver: true,
-      }),
-      Animated.timing(glowOpacity, {
-        toValue: isFocused ? 1 : 0,
-        duration: 300,
-        useNativeDriver: true,
-      }),
-      Animated.timing(iconOpacity, {
-        toValue: isFocused ? 1 : 0.6,
-        duration: 200,
-        useNativeDriver: true,
-      }),
+      Animated.spring(scale, { toValue: isFocused ? 1.05 : 1, ...springConfig }),
+      Animated.spring(translateY, { toValue: isFocused ? -2 : 0, ...springConfig }),
+      Animated.timing(pillOpacity, { toValue: isFocused ? 1 : 0, ...timingConfig }),
     ]).start();
   }, [isFocused]);
 
-
   const onPress = () => {
-    // ✨ VIBRACIÓN AL PRESIONAR
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }
+    if (Platform.OS === 'ios') Haptics.selectionAsync(); // Feedback sutil
 
-
-    // ✨ BOTÓN GIULIA AI - navega directamente
     if (isAiButton) {
       router.push("/(tabs)/ia/giulia");
       return;
     }
-
 
     const event = navigation.emit({
       type: "tabPress",
@@ -88,208 +84,132 @@ function TabItem({ route, index, state, navigation, cartCount, isAiButton }: any
       canPreventDefault: true,
     });
 
-
     if (route.name === "index") {
-      if (isFocused) {
-        navigation.emit({ type: "scrollToTop" });
-      } else {
-        navigation.navigate("(tabs)", { screen: "index" });
-      }
+      isFocused ? navigation.emit({ type: "scrollToTop" }) : navigation.navigate("(tabs)", { screen: "index" });
       return;
     }
-
 
     if (!isFocused && !event.defaultPrevented) {
       navigation.navigate(route.name);
     }
   };
 
-
-  let iconName = "";
-  let iconNameOutline = "";
-
-
+  // Selección de Íconos
+  let iconRender;
+  
   if (isAiButton) {
-    iconName = "sparkles";
-    iconNameOutline = "sparkles-sharp";
-  } else if (route.name === "index") {
-    iconName = "home";
-    iconNameOutline = "home-outline";
-  } else if (route.name === "favoritos/index") {
-    iconName = "heart";
-    iconNameOutline = "heart-outline";
-  } else if (route.name === "carrito/index") {
-    iconName = "bag-handle";
-    iconNameOutline = "bag-handle-outline";
-  } else if (route.name === "profile") {
-    iconName = "person";
-    iconNameOutline = "person-outline";
-  }
+    // 🔥 AQUÍ USAMOS TU LUPA AI PERSONALIZADA
+    iconRender = <AiSearchIcon color={isFocused ? ACTIVE_ICON_COLOR : INACTIVE_ICON_COLOR} size={26} />;
+  } else {
+    let iconName: any = "";
+    if (route.name === "index") iconName = isFocused ? "home" : "home-outline";
+    else if (route.name === "favoritos/index") iconName = isFocused ? "heart" : "heart-outline";
+    else if (route.name === "carrito/index") iconName = isFocused ? "bag-handle" : "bag-handle-outline";
+    else if (route.name === "profile") iconName = isFocused ? "person" : "person-outline";
 
+    iconRender = (
+      <Ionicons
+        name={iconName}
+        size={26}
+        color={isFocused ? ACTIVE_ICON_COLOR : INACTIVE_ICON_COLOR}
+      />
+    );
+  }
 
   return (
     <Pressable
-      key={isAiButton ? "ai-button" : route.key}
       onPress={onPress}
       style={styles.tabItem}
+      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
     >
-      <Animated.View
-        style={[
-          styles.tabItemContent,
-          {
-            transform: [{ scale }, { translateY }],
-          },
-        ]}
-      >
-        {/* Resplandor de fondo OVALADO */}
-        {isFocused && (
-          <Animated.View
-            style={[
-              styles.glowBackground,
-              {
-                opacity: glowOpacity,
-              },
-            ]}
-          >
-            <LinearGradient
-              colors={['rgba(0,0,0,0.08)', 'transparent']}
-              style={styles.glowGradient}
-            />
-          </Animated.View>
-        )}
+      <Animated.View style={[styles.tabItemContent, { transform: [{ scale }, { translateY }] }]}>
+        
+        {/* ⚫ Pastilla Negra (Fondo del ícono activo) */}
+        <Animated.View style={[styles.activePill, { opacity: pillOpacity }]} />
 
+        {/* 🖼️ El Ícono */}
+        <View style={styles.iconWrapper}>
+          {iconRender}
 
-        {/* Indicador superior */}
-        {isFocused && (
-          <Animated.View
-            style={[
-              styles.activeIndicator,
-              {
-                opacity: glowOpacity,
-              },
-            ]}
-          />
-        )}
+          {/* Badge Carrito */}
+          {route?.name === "carrito/index" && cartCount > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{cartCount > 9 ? "9+" : cartCount}</Text>
+            </View>
+          )}
+        </View>
 
-
-        {/* Ícono con contador */}
-        <Animated.View style={{ opacity: iconOpacity }}>
-          <View style={styles.iconContainer}>
-            <Ionicons
-              name={isFocused ? iconName : iconNameOutline}
-              size={ICON_SIZE}
-              color={isFocused ? ICON_COLOR : ICON_COLOR_INACTIVE}
-            />
-            {route?.name === "carrito/index" && cartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>
-                  {cartCount > 9 ? "9+" : cartCount}
-                </Text>
-              </View>
-            )}
-          </View>
-        </Animated.View>
       </Animated.View>
     </Pressable>
   );
 }
 
-
 /* -------------------------------------------------------
-    🌑 FancyTabBar — diseño extremo premium
+    ☁️ FancyTabBar — Efecto Tela (Glassmorphism Light)
 --------------------------------------------------------*/
 export function FancyTabBar({ state, navigation, cartCount: externalCartCount }: any) {
   const insets = useSafeAreaInsets();
   const [cartCount, setCartCount] = useState(0);
 
-
   useEffect(() => {
     const loadCart = async () => {
-      try {
-        const cart = await getCart();
-        setCartCount(cart.length);
-      } catch {
-        setCartCount(0);
-      }
+      try { const c = await getCart(); setCartCount(c.length); } catch { setCartCount(0); }
     };
-
-
     loadCart();
-
-
-    const onCartChange = () => loadCart();
-    storageEvents.on("cartChanged", onCartChange);
-
-
-    return () => {
-      storageEvents.off("cartChanged", onCartChange);
-    };
+    storageEvents.on("cartChanged", loadCart);
+    return () => storageEvents.off("cartChanged", loadCart);
   }, [externalCartCount]);
 
+  const routesToRender = useMemo(() => 
+    state.routes.filter((route: any) => 
+      !["facturas", "mistarjetas", "top", "ia"].some(ex => route.name.includes(ex))
+    ), [state.routes]);
 
   return (
-    <View
-      style={[
-        styles.fixedBarContainer,
-        {
-          paddingBottom: Math.max(insets.bottom, 8),
-          height: Platform.OS === "ios" ? 90 : 70,
-        },
-      ]}
-    >
-      {/* Blur effect para iOS */}
+    <View style={[styles.barContainer, { paddingBottom: Math.max(insets.bottom, 6) }]}>
+      
+      {/* 🌫️ EFECTO TELA BLANCA */}
       {Platform.OS === 'ios' ? (
-        <BlurView intensity={100} tint="light" style={StyleSheet.absoluteFill} />
+        <BlurView intensity={95} tint="systemThickMaterialLight" style={StyleSheet.absoluteFill} />
       ) : (
-        <View style={styles.androidBlur} />
+        <View style={styles.androidClothBg} />
       )}
 
+      {/* Borde superior imperceptible */}
+      <View style={styles.hairlineBorder} />
 
-      {/* Borde superior con gradiente */}
-      <LinearGradient
-        colors={['rgba(0,0,0,0.08)', 'transparent']}
-        style={styles.topBorder}
-      />
-
-
-      {/* Contenedor de tabs */}
-      <View style={styles.tabBarContainer}>
-        {state.routes.map((route: any, index: number) => {
-          if (route.name.includes("facturas") || route.name.includes("mistarjetas") || route.name === "top" || route.name.includes("ia")) return null;
-          
-          return (
-            <React.Fragment key={route.key}>
-              <TabItem
-                route={route}
-                index={index}
-                state={state}
-                navigation={navigation}
-                cartCount={cartCount}
-                isAiButton={false}
-              />
-              
-              {/* ✨ BOTÓN GIULIA AI DESPUÉS DE HOME */}
-              {route.name === "index" && (
-                <TabItem
-                  route={{}}
-                  index={-1}
-                  state={state}
-                  navigation={navigation}
-                  cartCount={0}
-                  isAiButton={true}
-                />
-              )}
-            </React.Fragment>
-          );
+      <View style={styles.tabsRow}>
+        {routesToRender.map((route: any) => {
+           const originalIndex = state.routes.indexOf(route);
+           return (
+             <React.Fragment key={route.key}>
+               <TabItem 
+                 route={route} 
+                 index={originalIndex} 
+                 state={state} 
+                 navigation={navigation} 
+                 cartCount={cartCount} 
+               />
+               {/* Insertamos la IA (Giulia) después del Home */}
+               {route.name === "index" && (
+                 <TabItem 
+                    route={{}} 
+                    index={-1} 
+                    state={state} 
+                    navigation={navigation} 
+                    isAiButton={true} 
+                 />
+               )}
+             </React.Fragment>
+           );
         })}
       </View>
     </View>
   );
 }
 
-
 /* -------------------------------------------------------
-    🧭 Tabs Layout principal
+    🧭 Layout Principal
 --------------------------------------------------------*/
 export default function TabsLayout() {
   return (
@@ -297,16 +217,13 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
+        animation: 'none', 
+        sceneStyle: { backgroundColor: '#FFFFFF' },
       }}
       tabBar={(props) => <FancyTabBar {...props} />}
     >
       <Tabs.Screen name="index" />
-      <Tabs.Screen 
-        name="ia" 
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="ia" options={{ href: null }} />
       <Tabs.Screen name="favoritos/index" />
       <Tabs.Screen name="carrito/index" />
       <Tabs.Screen name="profile" />
@@ -314,102 +231,89 @@ export default function TabsLayout() {
   );
 }
 
-
 /* -------------------------------------------------------
-    🎨 Estilos Premium
+    🎨 Estilos "White Cloth"
 --------------------------------------------------------*/
 const styles = StyleSheet.create({
-  fixedBarContainer: {
+  barContainer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.5)' : '#ffffff',
+    height: Platform.OS === 'ios' ? 86 : 68,
+    // Sombra muy difusa para efecto flotante
     shadowColor: "#000",
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: -8 },
-    shadowRadius: 20,
-    elevation: 12,
-    zIndex: 999,
-    overflow: 'hidden',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 10,
+    backgroundColor: 'transparent',
   },
-  androidBlur: {
+  androidClothBg: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderTopWidth: 0.5,
+    borderTopColor: '#E0E0E0',
   },
-  topBorder: {
+  hairlineBorder: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     height: 1,
+    backgroundColor: 'rgba(0,0,0,0.05)', // Separación mínima
   },
-  tabBarContainer: {
+  tabsRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-around",
+    justifyContent: "space-between",
     flex: 1,
-    paddingHorizontal: 12,
-    paddingTop: Platform.OS === 'ios' ? 8 : 4,
-    gap: 4,
+    paddingHorizontal: 16,
   },
   tabItem: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 2,
+    height: '100%',
   },
   tabItemContent: {
+    width: 56,
+    height: 56,
     alignItems: "center",
     justifyContent: "center",
-    position: 'relative',
   },
-  glowBackground: {
+  activePill: {
     position: 'absolute',
-    width: 80,
-    height: 50,
-    borderRadius: 25,
+    width: 56, // Un poco más ancha
+    height: 40, // Ovalada
+    borderRadius: 20,
+    backgroundColor: ACTIVE_PILL_COLOR, // Negro
+    marginTop: 4, // Centrado visual
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
   },
-  glowGradient: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 25,
-  },
-  activeIndicator: {
-    position: 'absolute',
-    top: -12,
-    width: 32,
-    height: 3,
-    backgroundColor: '#000',
-    borderRadius: 2,
-  },
-  iconContainer: {
-    position: 'relative',
-    padding: 8,
+  iconWrapper: {
+    marginTop: 4, // Ajuste para centrar dentro de la pastilla
+    zIndex: 2,
   },
   cartBadge: {
     position: "absolute",
-    top: 0,
-    right: 0,
+    top: -4,
+    right: -6,
     backgroundColor: BADGE_COLOR,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
-    paddingHorizontal: 4,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 2,
-    borderColor: "#ffffff",
-    shadowColor: BADGE_COLOR,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 4,
+    borderColor: "#FFFFFF", 
   },
   cartBadgeText: {
     color: "#fff",
     fontSize: 10,
     fontWeight: "bold",
-    letterSpacing: -0.5,
   },
 });

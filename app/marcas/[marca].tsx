@@ -1,30 +1,25 @@
 // app/marcas/[marca].tsx
-import {
-  PlayfairDisplay_400Regular,
-  PlayfairDisplay_600SemiBold,
-  PlayfairDisplay_700Bold,
-  useFonts,
-} from "@expo-google-fonts/playfair-display";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
   Animated,
   Dimensions,
-  Easing,
   FlatList,
   Image,
   Modal,
+  PanResponder,
   Platform,
+  RefreshControl,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   Vibration,
-  View,
+  View
 } from "react-native";
 import { FancyTabBar } from "../(tabs)/_layout";
 import { useApi } from "../../contexts/ApiContext";
@@ -33,197 +28,153 @@ import {
   addToFavorites,
   getCart,
   getFavorites,
-  removeFromFavorites,
-  storageEvents,
+  removeFromFavorites
 } from "../../utils/storage";
 
-const { width, height } = Dimensions.get("window");
-const CARD_MARGIN = 10;
-const CARD_WIDTH = (width - CARD_MARGIN * 3) / 2;
-const CARD_HEIGHT = 340;
+const { height, width } = Dimensions.get("window");
+const HEADER_HEIGHT = Platform.OS === 'ios' ? 130 : 115;
+const CARD_WIDTH = (width - 60) / 2;
 
-// ✨ TOAST MEJORADO
+// 🎨 TIPOGRAFÍA PREMIUM
+const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
+const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
+
+// ✨ TOAST PROFESIONAL ULTRA RÁPIDO
 const Toast = ({ visible, message, type = "success", onHide }: any) => {
   const translateY = useRef(new Animated.Value(-120)).current;
-  const scale = useRef(new Animated.Value(0.85)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderMove: (_, gestureState) => {
+        if (gestureState.dy < 0) {
+          translateY.setValue(gestureState.dy);
+        }
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (gestureState.dy < -50) {
+          Animated.parallel([
+            Animated.timing(translateY, { toValue: -120, duration: 180, useNativeDriver: true }),
+            Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
+          ]).start(onHide);
+        } else {
+          Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 6 }).start();
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     if (visible) {
       Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: true,
-          friction: 7,
-          tension: 65,
-        }),
-        Animated.spring(scale, {
-          toValue: 1,
-          useNativeDriver: true,
-          friction: 6,
-          tension: 50,
-        }),
-        Animated.timing(opacity, {
-          toValue: 1,
-          duration: 300,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 7, tension: 100 }),
+        Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
 
       setTimeout(() => {
         Animated.parallel([
-          Animated.timing(translateY, {
-            toValue: -120,
-            duration: 400,
-            useNativeDriver: true,
-            easing: Easing.in(Easing.cubic),
-          }),
-          Animated.timing(opacity, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          if (onHide) onHide();
-        });
-      }, 3000);
+          Animated.timing(translateY, { toValue: -120, duration: 250, useNativeDriver: true }),
+          Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
+        ]).start(onHide);
+      }, 2800);
     }
   }, [visible]);
 
   if (!visible) return null;
 
-  const backgroundColor = type === "error" 
-    ? "rgba(239, 68, 68, 0.95)" 
-    : type === "success"
-    ? "rgba(0, 0, 0, 0.95)"
-    : "rgba(18, 18, 18, 0.95)";
-  
-  const icon = type === "success" 
-    ? "checkmark-circle" 
-    : type === "error" 
-    ? "close-circle" 
-    : "information-circle";
+  const bgColor = type === "error" ? "#DC2626" : type === "warning" ? "#F59E0B" : "#000";
+  const icon = type === "error" ? "close-circle" : type === "warning" ? "alert-circle" : "checkmark-circle";
 
   return (
-    <Animated.View
+    <Animated.View 
+      {...panResponder.panHandlers}
       style={[
-        styles.toastContainer,
+        styles.toast, 
         { 
-          backgroundColor,
-          transform: [{ translateY }, { scale }],
-          opacity
-        },
+          backgroundColor: bgColor, 
+          transform: [{ translateY }], 
+          opacity,
+          zIndex: 99999
+        }
       ]}
     >
-      <View style={styles.toastContent}>
-        <Ionicons name={icon} size={24} color="#fff" />
-        <Text style={styles.toastText}>{message}</Text>
-      </View>
+      <Ionicons name={icon} size={24} color="#fff" />
+      <Text style={styles.toastText}>{message}</Text>
+      <View style={styles.toastSwipeIndicator} />
     </Animated.View>
   );
 };
 
-// ✨ TARJETA DE PRODUCTO ANIMADA
-const AnimatedProductCard = ({ item, index, onPress, onToggleFavorite, isFavorite, marca }: any) => {
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const slideAnim = useRef(new Animated.Value(30)).current;
+// ✨ TARJETA GRID ULTRA RÁPIDA
+const ProductCardGrid = ({ item, onPress, onToggleFavorite, isFavorite, marca }: any) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 600,
-        delay: index * 50,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        delay: index * 50,
-        useNativeDriver: true,
-        easing: Easing.out(Easing.cubic),
-      }),
-    ]).start();
-  }, []);
-
-  const handlePressIn = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 0.96,
-      useNativeDriver: true,
-      friction: 5,
-    }).start();
-  };
-
-  const handlePressOut = () => {
-    Animated.spring(scaleAnim, {
-      toValue: 1,
-      useNativeDriver: true,
-      friction: 5,
-    }).start();
-  };
+  const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 5 }).start();
+  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
 
   return (
-    <Animated.View
-      style={[
-        { 
-          opacity: fadeAnim, 
-          transform: [{ translateY: slideAnim }, { scale: scaleAnim }] 
-        },
-      ]}
-    >
-      <TouchableOpacity
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={styles.card}
-        activeOpacity={1}
-      >
-        <View style={styles.cardImageContainer}>
-          <Image
-            source={{ uri: item.url_imagen }}
-            style={styles.image}
-            resizeMode="cover"
-          />
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} activeOpacity={1} style={[styles.productCard, { width: CARD_WIDTH }]}>
+        <View style={[styles.productImgBox, { height: CARD_WIDTH * 1.3 }]}>
+          <Image source={{ uri: item.url_imagen }} style={styles.productImg} resizeMode="cover" />
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.05)']} style={StyleSheet.absoluteFill} />
           
-          <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.15)']}
-            style={styles.cardGradient}
-          />
-
           {item.stock === 0 && (
-            <View style={styles.outOfStockBadge}>
-              <Text style={styles.outOfStockText}>AGOTADO</Text>
+            <View style={styles.soldOut}>
+              <Text style={styles.soldOutText}>AGOTADO</Text>
             </View>
           )}
 
-          <TouchableOpacity
-            style={styles.heartButton}
-            onPress={onToggleFavorite}
-            activeOpacity={0.8}
-          >
-            <Ionicons
-              name={isFavorite ? "heart" : "heart-outline"}
-              size={20}
-              color={isFavorite ? "#EF4444" : "#fff"}
-            />
+          <TouchableOpacity style={styles.favBtn} onPress={onToggleFavorite} activeOpacity={0.7}>
+            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={19} color={isFavorite ? "#DC2626" : "#1a1a1a"} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.infoBox}>
-          <Text style={styles.cardBrand} numberOfLines={1}>
-            {marca}
-          </Text>
-          <Text style={styles.cardName} numberOfLines={2}>
-            {item.nombre}
-          </Text>
-          <View style={styles.cardPriceContainer}>
-            <Text style={styles.cardPrice} numberOfLines={1}>
-              ${item.precio}
-            </Text>
-            <View style={styles.cardDivider} />
+        <View style={styles.productInfo}>
+          <Text style={styles.productBrand} numberOfLines={1}>{marca}</Text>
+          <Text style={styles.productName} numberOfLines={2}>{item.nombre}</Text>
+          <View style={styles.priceContainer}>
+            <Text style={styles.productPrice}>${item.precio}</Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// ✨ TARJETA COLUMNA ULTRA RÁPIDA
+const ProductCardColumn = ({ item, onPress, onToggleFavorite, isFavorite, marca }: any) => {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 5 }).start();
+  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} activeOpacity={1} style={styles.productCardColumn}>
+        <View style={styles.productImgBoxColumn}>
+          <Image source={{ uri: item.url_imagen }} style={styles.productImg} resizeMode="cover" />
+          <LinearGradient colors={['transparent', 'rgba(0,0,0,0.05)']} style={StyleSheet.absoluteFill} />
+          
+          {item.stock === 0 && (
+            <View style={styles.soldOut}>
+              <Text style={styles.soldOutText}>AGOTADO</Text>
+            </View>
+          )}
+
+          <TouchableOpacity style={styles.favBtn} onPress={onToggleFavorite} activeOpacity={0.7}>
+            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={19} color={isFavorite ? "#DC2626" : "#1a1a1a"} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.productInfo}>
+          <Text style={styles.productBrand} numberOfLines={1}>{marca}</Text>
+          <Text style={styles.productName} numberOfLines={2}>{item.nombre}</Text>
+          <View style={styles.priceContainer}>
+            <Text style={styles.productPrice}>${item.precio}</Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -235,30 +186,23 @@ export default function MarcaScreen() {
   const router = useRouter();
   const apiUrl = useApi();
   const { marca, marcaId } = useLocalSearchParams();
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [productos, setProductos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchText, setSearchText] = useState("");
-  const [filterType, setFilterType] = useState("Todos");
-  const [filterGender, setFilterGender] = useState("Todos"); // ✨ NUEVO FILTRO GÉNERO
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isModalVisible, setIsModalVisible] = useState(false);
   const [favoritos, setFavoritos] = useState<any[]>([]);
   const [cartCount, setCartCount] = useState(0);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [scrollPosition, setScrollPosition] = useState(0); // ✨ GUARDAR POSICIÓN
-  
-  const slideAnim = useRef(new Animated.Value(height)).current;
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [filterType, setFilterType] = useState("Todos");
+  const [filterGender, setFilterGender] = useState("Todos");
+  const [viewMode, setViewMode] = useState<'grid' | 'column'>('grid');
+  const [expandedDesc, setExpandedDesc] = useState(false);
+
   const heartScale = useRef(new Animated.Value(1)).current;
-  const modalFlatListRef = useRef<FlatList>(null);
-  const mainFlatListRef = useRef<FlatList>(null); // ✨ REF PARA LISTA PRINCIPAL
-
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
-
-  const [fontsLoaded] = useFonts({
-    PlayfairDisplay_400Regular,
-    PlayfairDisplay_600SemiBold,
-    PlayfairDisplay_700Bold,
-  });
+  const modalFlatListRef = useRef<FlatList>(null);
 
   const tipoEquivalencias: Record<number, string> = {
     1: "Perfume",
@@ -269,9 +213,7 @@ export default function MarcaScreen() {
   };
 
   const showToast = (message: string, type = "success") => {
-    if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      Vibration.vibrate(50);
-    }
+    if (Platform.OS === 'ios' || Platform.OS === 'android') Vibration.vibrate(type === "error" ? [0, 80, 40, 80] : [0, 40, 20]);
     setToast({ visible: true, message, type });
   };
 
@@ -280,8 +222,6 @@ export default function MarcaScreen() {
     
     const fetchData = async () => {
       try {
-        console.log('📡 Conectando a:', apiUrl);
-        
         const res = await fetch(`${apiUrl}/api/productos/`);
         const allProducts = await res.json();
         
@@ -290,48 +230,32 @@ export default function MarcaScreen() {
         
         const marcaNormalizada = normalize(typeof marca === 'string' ? marca : String(marca));
         
-        console.log('🔍 Buscando marca:', marcaNormalizada);
-        
         const marcaProducts = allProducts.filter((p: any) => {
           const marcaProducto = normalize(p.marca_nombre || '');
           return marcaProducto === marcaNormalizada;
         });
         
         setProductos(marcaProducts);
-        console.log(`✅ Productos cargados: ${marcaProducts.length} de ${marca}`);
-      } catch (error) {
-        console.error('❌ Error cargando productos:', error);
+      } catch (e) {
+        console.error(e);
       } finally {
         setLoading(false);
       }
     };
 
     const loadStorage = async () => {
-      const cart = await getCart();
-      const favs = await getFavorites();
-      setFavoritos(favs);
-      setCartCount(cart.length);
+      setFavoritos(await getFavorites());
+      setCartCount((await getCart()).length);
     };
 
     fetchData();
     loadStorage();
   }, [marca, apiUrl]);
 
-  useEffect(() => {
-    const handleFavChange = async () => {
-      const updated = await getFavorites();
-      setFavoritos(updated);
-    };
-    storageEvents.on("favoritesChanged", handleFavChange);
-    return () => storageEvents.off("favoritesChanged", handleFavChange);
-  }, []);
-
-  // ✨ FILTROS MEJORADOS CON GÉNERO
   const filteredPerfumes = productos.filter((p) => {
     const matchesType = filterType === "Todos" || tipoEquivalencias[p.tipo] === filterType;
     const matchesSearch = p.nombre.toLowerCase().includes(searchText.toLowerCase());
     
-    // ✨ FILTRO DE GÉNERO
     const genero = (p.genero || '').toLowerCase().trim();
     let matchesGender = true;
     
@@ -344,439 +268,303 @@ export default function MarcaScreen() {
     return matchesType && matchesSearch && matchesGender;
   });
 
+  const toggleFavorite = async (item: any) => {
+    const isFav = favoritos.some(f => f.id === item.id);
+    const updated = isFav ? await removeFromFavorites(item.id) : await addToFavorites(item);
+    setFavoritos(updated);
+    
+    Animated.sequence([
+      Animated.timing(heartScale, { toValue: 0.8, duration: 80, useNativeDriver: true }),
+      Animated.spring(heartScale, { toValue: 1.15, useNativeDriver: true, friction: 3, tension: 100 }),
+      Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, friction: 4 }),
+    ]).start();
+  };
+
+  const isFavorite = (id: number) => favoritos.some(f => f.id === id);
+
   const openModal = (index: number) => {
     setSelectedIndex(index);
     setIsModalVisible(true);
-    slideAnim.setValue(height);
-    
-    Animated.spring(slideAnim, {
-      toValue: 0,
-      useNativeDriver: true,
-      friction: 7,
-      tension: 50,
-    }).start();
-
-    setTimeout(() => {
-      modalFlatListRef.current?.scrollToIndex({ 
-        index, 
-        animated: false 
-      });
-    }, 100);
+    setExpandedDesc(false);
+    setTimeout(() => modalFlatListRef.current?.scrollToIndex({ index, animated: false }), 50);
   };
 
-  // ✨ CERRAR MODAL SIN REINICIAR SCROLL
   const closeModal = () => {
-    Animated.timing(slideAnim, {
-      toValue: height,
-      duration: 350,
-      useNativeDriver: true,
-      easing: Easing.in(Easing.cubic),
-    }).start(() => {
-      setIsModalVisible(false);
-      // ✨ RESTAURAR POSICIÓN AL CERRAR
-      setTimeout(() => {
-        mainFlatListRef.current?.scrollToOffset({ 
-          offset: scrollPosition, 
-          animated: false 
-        });
-      }, 50);
-    });
+    setIsModalVisible(false);
   };
 
-  const toggleFavorite = async (perfume: any) => {
-    const isFavNow = favoritos.some((f) => f.id === perfume.id);
+  const handleAddToCart = async (item: any) => {
+    if (item.stock === 0) {
+      showToast("Sin stock disponible", "error");
+      return;
+    }
 
     try {
-      const updated = isFavNow
-        ? await removeFromFavorites(perfume.id)
-        : await addToFavorites(perfume);
-      
-      setFavoritos(updated);
+      const cart = await getCart();
+      const exists = cart.find((i: any) => i.id === item.id);
 
-      Animated.sequence([
-        Animated.timing(heartScale, {
-          toValue: 0.88,
-          duration: 100,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.timing(heartScale, {
-          toValue: 1.15,
-          duration: 150,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.spring(heartScale, {
-          toValue: 1,
-          useNativeDriver: true,
-          friction: 4,
-          tension: 50,
-        }),
-      ]).start();
+      if (exists) {
+        showToast("Este producto ya está en el cesto", "warning");
+      } else {
+        await addToCart(item);
+        setCartCount(prev => prev + 1);
+        showToast("Añadido al cesto", "success");
+      }
     } catch {
-      showToast("Error al actualizar favoritos", "error");
+      showToast("Error al añadir", "error");
     }
   };
 
-  const isFavorite = (id: number) => favoritos.some((f) => f.id === id);
+  const renderModalItem = ({ item }: any) => {
+    const descText = item.descripcion || "Sin descripción disponible.";
+    const descLines = descText.split('\n').length;
+    const needsExpand = descLines > 3 || descText.length > 220;
 
-  const onModalViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems.length > 0) {
-      setSelectedIndex(viewableItems[0].index);
-    }
-  }).current;
+    return (
+      <View style={{ width, height, backgroundColor: '#fff' }}>
+        <View style={styles.modalImageFixed}>
+          <Image source={{ uri: item.url_imagen }} style={styles.modalImage} resizeMode="cover" />
+          <LinearGradient colors={['rgba(0,0,0,0.1)', 'transparent', 'rgba(0,0,0,0.4)']} style={StyleSheet.absoluteFill} />
 
-  const viewabilityConfig = useRef({
-    itemVisiblePercentThreshold: 50
-  }).current;
+          {item.stock === 0 && (
+            <View style={styles.modalSoldOut}>
+              <Text style={styles.modalSoldOutText}>AGOTADO</Text>
+            </View>
+          )}
 
-  const renderModalItem = ({ item }: any) => (
-    <View style={styles.modalProductContainer}>
-      <View style={styles.modalImageBox}>
-        <Image
-          source={{ uri: item.url_imagen }}
-          style={styles.modalFullImage}
-        />
-
-        <LinearGradient
-          colors={['rgba(0,0,0,0.3)', 'transparent', 'rgba(0,0,0,0.5)']}
-          style={styles.modalImageGradient}
-        />
-
-        {item.stock === 0 && (
-          <View style={styles.outOfStockBadgeModal}>
-            <Text style={styles.outOfStockTextModal}>AGOTADO</Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={styles.modalHeartButton}
-          onPress={() => toggleFavorite(item)}
-          activeOpacity={0.85}
-        >
-          <Animated.View style={{ transform: [{ scale: heartScale }] }}>
-            <Ionicons
-              name={isFavorite(item.id) ? "heart" : "heart-outline"}
-              size={28}
-              color={isFavorite(item.id) ? "#EF4444" : "#333333"}
-            />
-          </Animated.View>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.modalTextBoxFull}>
-        <View style={styles.namePriceRow}>
-          <View style={styles.modalNameContainer}>
-            <Text style={styles.modalName} numberOfLines={2}>
-              {item.nombre}
-            </Text>
-            <Text style={styles.modalBrand}>
-              {marca}
-            </Text>
-          </View>
-          <View style={styles.modalPriceContainer}>
-            <Text style={styles.modalPrice}>
-              ${item.precio}
-            </Text>
-          </View>
+          <TouchableOpacity style={styles.modalFav} onPress={() => toggleFavorite(item)} activeOpacity={0.7}>
+            <Animated.View style={{ transform: [{ scale: heartScale }] }}>
+              <Ionicons name={isFavorite(item.id) ? "heart" : "heart-outline"} size={26} color={isFavorite(item.id) ? "#DC2626" : "#fff"} />
+            </Animated.View>
+          </TouchableOpacity>
         </View>
 
-        <View style={styles.modalDivider} />
-
-        <ScrollView 
-          showsVerticalScrollIndicator={false}
+        <ScrollView
           style={styles.modalScrollContent}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
         >
-          <Text style={styles.modalLabel}>Descripción</Text>
-          <Text style={styles.modalDescription}>
-            {item.descripcion || "Sin descripción disponible."}
-          </Text>
-
-          <View style={styles.modalInfoGrid}>
-            <View style={styles.modalInfoItem}>
-              <Ionicons name="water-outline" size={18} color="#666" />
-              <Text style={styles.modalInfo}>
-                {tipoEquivalencias[item.tipo] || "Desconocido"}
-              </Text>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flex: 1, marginRight: 16 }}>
+                <Text style={styles.modalBrand}>{displayMarca}</Text>
+                <Text style={styles.modalTitle} numberOfLines={3}>{item.nombre}</Text>
+              </View>
+              <View style={styles.modalPriceBox}>
+                <Text style={styles.modalPrice}>${item.precio}</Text>
+              </View>
             </View>
-            <View style={styles.modalInfoItem}>
-              <Ionicons name="cube-outline" size={18} color="#666" />
-              <Text style={styles.modalInfo}>
-                {item.stock} unidades
+
+            <View style={styles.modalDivider} />
+
+            {/* ✅ DESCRIPCIÓN CON LEER MÁS */}
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionLabel}>Descripción</Text>
+              <Text style={styles.modalDesc} numberOfLines={expandedDesc ? undefined : 4}>
+                {descText}
               </Text>
+              {needsExpand && (
+                <TouchableOpacity onPress={() => setExpandedDesc(!expandedDesc)} activeOpacity={0.7} style={{ marginTop: 8 }}>
+                  <Text style={styles.readMore}>
+                    {expandedDesc ? "Leer menos" : "Leer más"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
+            <View style={styles.modalSection}>
+              <Text style={styles.modalSectionLabel}>Detalles</Text>
+              <View style={styles.infoGrid}>
+                <View style={styles.infoBox}>
+                  <Ionicons name="water-outline" size={22} color="#1a1a1a" />
+                  <Text style={styles.infoLabel}>Tipo</Text>
+                  <Text style={styles.infoValue}>{tipoEquivalencias[item.tipo] || "N/A"}</Text>
+                </View>
+                <View style={styles.infoBox}>
+                  <Ionicons name="cube-outline" size={22} color="#1a1a1a" />
+                  <Text style={styles.infoLabel}>Stock</Text>
+                  <Text style={styles.infoValue}>{item.stock} unidades</Text>
+                </View>
+              </View>
             </View>
           </View>
         </ScrollView>
 
-        <TouchableOpacity
-          style={[
-            styles.fullWidthAddButton,
-            item.stock === 0 && styles.disabledButton
-          ]}
-          onPress={async () => {
-            if (item.stock === 0) {
-              showToast("Sin stock disponible", "error");
-              return;
-            }
-            try {
-              const currentCart = await getCart();
-              const itemExists = currentCart.find((i: any) => i.id === item.id);
-              if (itemExists) {
-                showToast("Producto ya en el cesto", "error");
-              } else {
-                const updated = await addToCart(item);
-                setCartCount(updated.length);
-                showToast("Añadido al cesto", "success");
-              }
-            } catch (error) {
-              showToast("Error al añadir", "error");
-            }
-          }}
-          disabled={item.stock === 0}
-          activeOpacity={0.85}
-        >
-          <Ionicons
-            name="bag-handle-outline"
-            size={20}
-            color={item.stock === 0 ? "#999" : "#fff"}
-          />
-          <Text style={[
-            styles.actionText,
-            item.stock === 0 && styles.disabledText
-          ]}>
-            {item.stock === 0 ? "Sin stock" : "Añadir al cesto"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-
-  if (loading || !fontsLoaded)
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#000" />
+        <View style={styles.modalFooter}>
+          <TouchableOpacity
+            style={[styles.addBtn, item.stock === 0 && styles.addBtnDisabled]}
+            onPress={() => handleAddToCart(item)}
+            disabled={item.stock === 0}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="bag-handle-outline" size={24} color={item.stock === 0 ? "#999" : "#fff"} />
+            <Text style={[styles.addBtnText, item.stock === 0 && { color: "#999" }]}>
+              {item.stock === 0 ? "SIN STOCK" : "AÑADIR AL CESTO"}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
+  };
+
+  if (loading) return <View style={{ flex: 1, backgroundColor: '#fff' }} />;
 
   const displayMarca = typeof marca === 'string' ? marca.replace(/-/g, ' ') : marca;
 
   return (
     <View style={styles.container}>
-      <Toast
-        visible={toast.visible}
-        message={toast.message}
-        type={toast.type}
-        onHide={() => setToast({ ...toast, visible: false })}
-      />
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-      {!isModalVisible && (
-        <FlatList
-          ref={mainFlatListRef}
-          data={filteredPerfumes}
-          keyExtractor={(item) => item.id.toString()}
-          numColumns={2}
-          columnWrapperStyle={styles.row}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          showsVerticalScrollIndicator={false}
-          onScroll={(e) => setScrollPosition(e.nativeEvent.contentOffset.y)} // ✨ GUARDAR POSICIÓN
-          scrollEventThrottle={16}
-          ListHeaderComponent={
-            <>
-              <View style={styles.header}>
-                <TouchableOpacity
-                  style={styles.backButton}
-                  onPress={() => router.back()}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.backButtonContainer}>
-                    <Ionicons name="arrow-back" size={24} color="#000" />
-                  </View>
-                </TouchableOpacity>
-                <Image
-                  source={require("../../assets/images/logomaison.png")}
-                  style={styles.logo}
-                  resizeMode="contain"
+      <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
+
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
+        </TouchableOpacity>
+        <Image source={require("../../assets/images/logomaison.png")} style={styles.logo} resizeMode="contain" />
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView ref={scrollViewRef as any} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => setRefreshing(false)} tintColor="#1a1a1a" />} showsVerticalScrollIndicator={false}>
+        
+        <View style={styles.titleSection}>
+          <Text style={styles.sectionTitle}>{displayMarca}</Text>
+          <View style={styles.sectionLine} />
+          <Text style={styles.sectionSub}>Colección exclusiva</Text>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#666" style={{ marginRight: 12 }} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={`Buscar en ${displayMarca}...`}
+            placeholderTextColor="#999"
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+        </View>
+
+        {/* ✨ FILTRO DE GÉNERO */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.genderFiltersContainer}
+        >
+          {["Ambos", "Mujeres", "Hombres"].map((gender) => (
+            <TouchableOpacity
+              key={gender}
+              style={[
+                styles.genderFilterButton,
+                filterGender === gender && styles.genderFilterButtonActive,
+              ]}
+              onPress={() => setFilterGender(gender)}
+              activeOpacity={0.8}
+            >
+              <Text
+                style={[
+                  styles.genderFilterText,
+                  filterGender === gender && styles.genderFilterTextActive,
+                ]}
+              >
+                {gender}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* ✨ FILTROS DE TIPO */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersContainer}
+        >
+          {["Todos", "Perfume", "Eau de Parfum", "Eau de Toilette", "Eau de Cologne", "Eau Fraîche"].map((type) => (
+            <TouchableOpacity
+              key={type}
+              style={[styles.filterButton, filterType === type && styles.filterButtonActive]}
+              onPress={() => setFilterType(type)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.filterText, filterType === type && styles.filterTextActive]}>
+                {type}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        <View style={styles.section}>
+          <View style={styles.viewToggle}>
+            <TouchableOpacity
+              style={[styles.toggleBtn, viewMode === 'grid' && styles.toggleBtnActive]}
+              onPress={() => setViewMode('grid')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="grid-outline" size={22} color={viewMode === 'grid' ? "#fff" : "#666"} />
+              <Text style={[styles.toggleText, viewMode === 'grid' && styles.toggleTextActive]}>Cuadrícula</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.toggleBtn, viewMode === 'column' && styles.toggleBtnActive]}
+              onPress={() => setViewMode('column')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="reorder-four-outline" size={22} color={viewMode === 'column' ? "#fff" : "#666"} />
+              <Text style={[styles.toggleText, viewMode === 'column' && styles.toggleTextActive]}>Columna</Text>
+            </TouchableOpacity>
+          </View>
+
+          {viewMode === 'grid' ? (
+            <View style={styles.grid}>
+              {filteredPerfumes.map((item, index) => (
+                <ProductCardGrid
+                  key={item.id}
+                  item={item}
+                  marca={displayMarca}
+                  onPress={() => openModal(index)}
+                  onToggleFavorite={() => toggleFavorite(item)}
+                  isFavorite={isFavorite(item.id)}
                 />
-              </View>
-
-              <View style={styles.titleContainer}>
-                <Text style={styles.title}>{displayMarca}</Text>
-                <View style={styles.titleDivider} />
-                <Text style={styles.subtitle}>Colección exclusiva</Text>
-              </View>
-
-              <View style={styles.searchContainer}>
-                <View style={[
-                  styles.searchInputWrapper,
-                  isSearchFocused && styles.searchInputFocused
-                ]}>
-                  <Ionicons 
-                    name="search" 
-                    size={20} 
-                    color={isSearchFocused ? "#000" : "#999"} 
-                    style={styles.searchIcon}
-                  />
-                  <TextInput
-                    placeholder={`Buscar en ${displayMarca}...`}
-                    placeholderTextColor="#aaa"
-                    style={styles.searchInput}
-                    value={searchText}
-                    onChangeText={setSearchText}
-                    onFocus={() => setIsSearchFocused(true)}
-                    onBlur={() => setIsSearchFocused(false)}
-                  />
-                  {searchText.length > 0 && (
-                    <TouchableOpacity 
-                      onPress={() => setSearchText("")}
-                      activeOpacity={0.7}
-                    >
-                      <Ionicons name="close-circle" size={20} color="#666" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-
-              {/* ✨ FILTRO DE GÉNERO */}
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.genderFiltersContainer}
-              >
-                {["All", "Mujeres", "Hombres"].map((gender) => (
-                  <TouchableOpacity
-                    key={gender}
-                    style={[
-                      styles.genderFilterButton,
-                      filterGender === gender && styles.genderFilterButtonActive,
-                    ]}
-                    onPress={() => setFilterGender(gender)}
-                    activeOpacity={0.8}
-                  >
-                    <Ionicons
-                      name={
-                        gender === "Mujeres" ? "" :
-                        gender === "Hombres" ? "" :
-                        ""
-                      }
-                      size={16}
-                      color={filterGender === gender ? "#fff" : "#666"}
-                      style={{ marginRight: 6 }}
-                    />
-                    <Text
-                      style={[
-                        styles.genderFilterText,
-                        filterGender === gender && styles.genderFilterTextActive,
-                      ]}
-                    >
-                      {gender}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              {/* ✨ FILTROS DE TIPO */}
-              <ScrollView 
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.filtersContainer}
-              >
-                {[
-                  "Todos",
-                  "Perfume",
-                  "Eau de Parfum",
-                  "Eau de Toilette",
-                  "Eau de Cologne",
-                  "Eau Fraîche",
-                ].map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    style={[
-                      styles.filterButton,
-                      filterType === type && styles.filterButtonActive,
-                    ]}
-                    onPress={() => setFilterType(type)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.filterText,
-                        filterType === type && styles.filterTextActive,
-                      ]}
-                    >
-                      {type}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <View style={styles.resultsContainer}>
-                <Text style={styles.resultsText}>
-                  {filteredPerfumes.length} {filteredPerfumes.length === 1 ? 'producto' : 'productos'}
-                </Text>
-              </View>
-            </>
-          }
-          renderItem={({ item, index }) => (
-            <AnimatedProductCard
-              item={item}
-              index={index}
-              marca={displayMarca}
-              onPress={() => openModal(index)}
-              onToggleFavorite={() => toggleFavorite(item)}
-              isFavorite={isFavorite(item.id)}
-            />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.columnContainer}>
+              {filteredPerfumes.map((item, index) => (
+                <ProductCardColumn
+                  key={item.id}
+                  item={item}
+                  marca={displayMarca}
+                  onPress={() => openModal(index)}
+                  onToggleFavorite={() => toggleFavorite(item)}
+                  isFavorite={isFavorite(item.id)}
+                />
+              ))}
+            </View>
           )}
-        />
-      )}
+        </View>
+      </ScrollView>
 
       {isModalVisible && (
-        <Modal visible transparent animationType="none">
+        <Modal visible transparent animationType="slide">
           <View style={styles.modalBackdrop}>
-            <Animated.View 
-              style={[
-                styles.modalOverlay, 
-                { transform: [{ translateY: slideAnim }] }
-              ]}
-            >
-              <Toast
-                visible={toast.visible}
-                message={toast.message}
-                type={toast.type}
-                onHide={() => setToast({ ...toast, visible: false })}
-              />
+            <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
 
-              <TouchableOpacity 
-                onPress={closeModal} 
-                style={styles.backArrow}
-                activeOpacity={0.7}
-              >
-                <View style={styles.backArrowContainer}>
-                  <Ionicons name="arrow-back" size={24} color="#fff" />
-                </View>
-              </TouchableOpacity>
+            <TouchableOpacity style={styles.closeBtn} onPress={closeModal} activeOpacity={0.8}>
+              <View style={styles.closeBtnInner}>
+                <Ionicons name="close" size={28} color="#1a1a1a" />
+              </View>
+            </TouchableOpacity>
 
-              <FlatList
-                ref={modalFlatListRef}
-                data={filteredPerfumes}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(item) => item.id.toString()}
-                renderItem={renderModalItem}
-                onViewableItemsChanged={onModalViewableItemsChanged}
-                viewabilityConfig={viewabilityConfig}
-                getItemLayout={(data, index) => ({
-                  length: width,
-                  offset: width * index,
-                  index,
-                })}
-                initialScrollIndex={selectedIndex}
-                scrollEventThrottle={16}
-                decelerationRate="fast"
-                snapToInterval={width}
-                snapToAlignment="center"
-              />
-            </Animated.View>
+            <FlatList
+              ref={modalFlatListRef}
+              data={filteredPerfumes}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderModalItem}
+              initialScrollIndex={selectedIndex}
+              getItemLayout={(_, index) => ({ length: width, offset: width * index, index })}
+            />
           </View>
         </Modal>
       )}
@@ -795,10 +583,7 @@ export default function MarcaScreen() {
         }}
         descriptors={{}}
         navigation={{
-          navigate: (routeName: string) => {
-            if (routeName === "index") router.push("/(tabs)");
-            else router.push(`/(tabs)/${routeName.replace("/index", "")}`);
-          },
+          navigate: (n: string) => n === "index" ? router.push("/(tabs)") : router.push(`/(tabs)/${n.replace("/index", "")}`),
           emit: () => ({ defaultPrevented: false }),
         }}
       />
@@ -807,489 +592,89 @@ export default function MarcaScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#fff" 
-  },
-  loadingContainer: { 
-    flex: 1, 
-    justifyContent: "center", 
-    alignItems: "center",
-    backgroundColor: "#fff"
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 50,
-    marginBottom: 20,
-    paddingHorizontal: 20,
-  },
-  backButton: { 
-    position: "absolute", 
-    left: 20,
-  },
-  backButtonContainer: {
-    backgroundColor: "#f5f5f5",
-    borderRadius: 24,
-    padding: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  logo: { 
-    width: 160, 
-    height: 70 
-  },
-  titleContainer: {
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  title: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 24,
-    textAlign: "center",
-    color: "#111",
-    letterSpacing: 2,
-    marginBottom: 12,
-    textTransform: 'uppercase',
-  },
-  titleDivider: {
-    width: 60,
-    height: 3,
-    backgroundColor: "#000",
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 13,
-    color: "#666",
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  searchContainer: {
-    marginHorizontal: 20,
-    marginBottom: 15,
-  },
-  searchInputWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#fafafa",
-    borderRadius: 30,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderWidth: 2,
-    borderColor: "transparent",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  searchInputFocused: {
-    borderColor: "#000",
-    backgroundColor: "#fff",
-    shadowOpacity: 0.1,
-    elevation: 4,
-  },
-  searchIcon: {
-    marginRight: 12,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "#000",
-    letterSpacing: 0.3,
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+
+  header: { position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT, backgroundColor: '#fff', zIndex: 100, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 14, paddingHorizontal: 22, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 5 },
+  backButton: { padding: 10 },
+  logo: { width: 60, height: 60 },
+
+  titleSection: { alignItems: 'center', marginTop: HEADER_HEIGHT + 30, marginBottom: 25 },
+  sectionTitle: { fontSize: 24, textAlign: 'center', color: '#1a1a1a', letterSpacing: 1.5, fontFamily: FONT_TITLE, fontWeight: '400', textTransform: 'uppercase' },
+  sectionLine: { width: 55, height: 1, backgroundColor: '#1a1a1a', marginVertical: 12 },
+  sectionSub: { fontSize: 12, textAlign: 'center', color: '#666', fontFamily: FONT_BODY, fontStyle: 'italic', letterSpacing: 0.5 },
+
+  searchContainer: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 22, marginBottom: 15, backgroundColor: '#fafafa', borderRadius: 30, paddingHorizontal: 20, paddingVertical: 12, borderWidth: 1, borderColor: '#f0f0f0' },
+  searchInput: { flex: 1, fontSize: 14, color: '#1a1a1a', fontFamily: FONT_BODY },
+
+  genderFiltersContainer: { paddingHorizontal: 22, paddingBottom: 15, gap: 10 },
+  genderFilterButton: { paddingHorizontal: 18, paddingVertical: 10, backgroundColor: '#f5f5f5', borderRadius: 25, borderWidth: 1, borderColor: '#e8e8e8' },
+  genderFilterButtonActive: { backgroundColor: '#000', borderColor: '#000' },
+  genderFilterText: { fontSize: 12, color: '#666', fontFamily: FONT_MODERN, fontWeight: '600', letterSpacing: 0.5 },
+  genderFilterTextActive: { color: '#fff' },
+
+  filtersContainer: { paddingHorizontal: 22, paddingBottom: 20, gap: 10 },
+  filterButton: { paddingHorizontal: 18, paddingVertical: 10, backgroundColor: '#f5f5f5', borderRadius: 25, borderWidth: 1, borderColor: '#e8e8e8' },
+  filterButtonActive: { backgroundColor: '#000', borderColor: '#000' },
+  filterText: { fontSize: 12, color: '#666', fontFamily: FONT_MODERN, fontWeight: '600', letterSpacing: 0.5 },
+  filterTextActive: { color: '#fff' },
+
+  section: { paddingHorizontal: 22, paddingBottom: 100 },
   
-  // ✨ FILTROS DE GÉNERO
-  genderFiltersContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    gap: 10,
-  },
-  genderFilterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: "#e8e8e8",
-  },
-  genderFilterButtonActive: { 
-    backgroundColor: "#000",
-    borderColor: "#000",
-  },
-  genderFilterText: { 
-    fontSize: 13,
-    color: "#666",
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    letterSpacing: 0.5,
-  },
-  genderFilterTextActive: { 
-    color: "#fff" 
-  },
-  
-  filtersContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 15,
-    gap: 10,
-  },
-  filterButton: {
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    backgroundColor: "#f5f5f5",
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: "#e8e8e8",
-  },
-  filterButtonActive: { 
-    backgroundColor: "#000",
-    borderColor: "#000",
-  },
-  filterText: { 
-    fontSize: 12,
-    color: "#666",
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    letterSpacing: 0.5,
-  },
-  filterTextActive: { 
-    color: "#fff" 
-  },
-  resultsContainer: {
-    marginHorizontal: 20,
-    marginBottom: 15,
-  },
-  resultsText: {
-    fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 12,
-    color: "#999",
-    letterSpacing: 0.5,
-  },
-  row: { 
-    justifyContent: "space-between", 
-    paddingHorizontal: CARD_MARGIN,
-    marginBottom: 15,
-  },
-  card: {
-    width: CARD_WIDTH,
-    height: CARD_HEIGHT,
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  cardImageContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 220,
-  },
-  image: { 
-    width: "100%", 
-    height: "100%" 
-  },
-  cardGradient: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  outOfStockBadge: {
-    position: "absolute",
-    top: "42%",
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(239, 68, 68, 0.96)",
-    paddingVertical: 10,
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
-  outOfStockText: {
-    color: "#fff",
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 11,
-    letterSpacing: 2,
-  },
-  heartButton: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: "rgba(0,0,0,0.5)",
-    padding: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  infoBox: { 
-    height: 120,
-    padding: 14,
-    paddingBottom: 18,
-    justifyContent: 'space-between',
-  },
-  cardBrand: {
-    fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 11,
-    color: "#888",
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    height: 14,
-  },
-  cardName: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 14,
-    color: "#111",
-    lineHeight: 19,
-    height: 38,
-    marginBottom: 12,
-  },
-  cardPriceContainer: {
-    alignItems: 'center',
-    height: 32,
-    justifyContent: 'center',
-  },
-  cardPrice: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 18,
-    color: "#000",
-    marginBottom: 8,
-    height: 22,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
-  cardDivider: {
-    width: 30,
-    height: 2,
-    backgroundColor: '#000',
-  },
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.75)",
-    justifyContent: "flex-end",
-  },
-  modalOverlay: {
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: "hidden",
-    maxHeight: height,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 20,
-  },
-  modalProductContainer: {
-    width: width,
-    height: height,
-  },
-  modalImageBox: {
-    height: height * 0.48,
-    width: "100%",
-    overflow: "hidden",
-    position: "relative",
-  },
-  modalFullImage: { 
-    width: "100%", 
-    height: "100%", 
-    resizeMode: "cover" 
-  },
-  modalImageGradient: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-  },
-  outOfStockBadgeModal: {
-    position: "absolute",
-    top: "44%",
-    left: 0,
-    right: 0,
-    backgroundColor: "rgba(239, 68, 68, 0.97)",
-    paddingVertical: 16,
-    alignItems: "center",
-    borderTopWidth: 2,
-    borderBottomWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-  },
-  outOfStockTextModal: {
-    color: "#fff",
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 18,
-    letterSpacing: 3,
-  },
-  backArrow: {
-    position: "absolute",
-    top: 50,
-    left: 24,
-    zIndex: 30,
-  },
-  backArrowContainer: {
-    backgroundColor: "rgba(0,0,0,0.6)",
-    borderRadius: 24,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-  },
-  modalHeartButton: {
-    position: "absolute",
-    bottom: 20,
-    right: 20,
-    backgroundColor: "rgba(255,255,255,0.95)",
-    borderRadius: 28,
-    padding: 14,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(0,0,0,0.05)',
-  },
-  modalTextBoxFull: {
-    height: height * 0.52,
-    backgroundColor: "#fff",
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    padding: 25,
-    paddingTop: 28,
-  },
-  namePriceRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 20,
-  },
-  modalNameContainer: {
-    flex: 1,
-    marginRight: 15,
-  },
-  modalName: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 22,
-    color: "#000",
-    lineHeight: 28,
-    marginBottom: 6,
-  },
-  modalBrand: {
-    fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 13,
-    color: "#666",
-    textTransform: 'uppercase',
-    letterSpacing: 1.5,
-  },
-  modalPriceContainer: {
-    alignItems: 'flex-end',
-  },
-  modalPrice: {
-    fontFamily: "PlayfairDisplay_700Bold",
-    fontSize: 26,
-    color: "#000",
-  },
-  modalDivider: {
-    height: 1,
-    backgroundColor: '#e8e8e8',
-    marginBottom: 20,
-  },
-  modalScrollContent: {
-    flex: 1,
-    marginBottom: 15,
-  },
-  modalLabel: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    fontSize: 14,
-    color: "#000",
-    marginBottom: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  modalDescription: {
-    fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 14,
-    color: "#555",
-    textAlign: "justify",
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  modalInfoGrid: {
-    flexDirection: 'row',
-    gap: 20,
-    marginBottom: 10,
-  },
-  modalInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  modalInfo: {
-    fontFamily: "PlayfairDisplay_400Regular",
-    fontSize: 13,
-    color: "#666",
-  },
-  fullWidthAddButton: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#000",
-    borderRadius: 30,
-    paddingVertical: 16,
-    width: "100%",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  disabledButton: {
-    backgroundColor: "#f5f5f5",
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  actionText: {
-    color: "#fff",
-    fontSize: 14,
-    marginLeft: 8,
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
-  disabledText: {
-    color: "#999",
-  },
-  toastContainer: {
-    position: "absolute",
-    top: 60,
-    left: 20,
-    right: 20,
-    borderRadius: 16,
-    zIndex: 9999,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 10,
-    overflow: 'hidden',
-  },
-  toastContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  toastText: {
-    color: "#fff",
-    fontSize: 15,
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    marginLeft: 12,
-    flex: 1,
-    letterSpacing: 0.3,
-  },
+  viewToggle: { flexDirection: 'row', gap: 14, marginBottom: 28 },
+  toggleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'transparent', borderRadius: 12, paddingVertical: 16 },
+  toggleBtnActive: { backgroundColor: '#1a1a1a' },
+  toggleText: { fontSize: 13, color: '#666', fontFamily: FONT_MODERN, fontWeight: '600', letterSpacing: 0.5 },
+  toggleTextActive: { color: '#fff' },
+
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
+  productCard: { marginBottom: 32, backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6, borderWidth: 1, borderColor: '#f5f5f5' },
+  productImgBox: { width: '100%', position: 'relative' },
+  productImg: { width: '100%', height: '100%' },
+  soldOut: { position: 'absolute', top: '45%', left: 0, right: 0, backgroundColor: '#DC2626', paddingVertical: 12, alignItems: 'center' },
+  soldOutText: { color: '#fff', fontSize: 10, letterSpacing: 2.5, fontFamily: FONT_MODERN, fontWeight: '700' },
+  favBtn: { position: 'absolute', top: 14, right: 14, backgroundColor: 'rgba(255,255,255,0.95)', padding: 8, borderRadius: 22, shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 6 },
+  productInfo: { padding: 16 },
+  productBrand: { fontSize: 9, color: '#999', textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 6, fontFamily: FONT_MODERN, fontWeight: '700' },
+  productName: { fontSize: 13, color: '#1a1a1a', lineHeight: 18, marginBottom: 12, height: 36, fontFamily: FONT_BODY, fontWeight: '400' },
+  priceContainer: { alignItems: 'flex-start' },
+  productPrice: { fontSize: 17, color: '#1a1a1a', fontFamily: FONT_TITLE, fontWeight: '600' },
+
+  columnContainer: { gap: 20 },
+  productCardColumn: { width: '100%', backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6, borderWidth: 1, borderColor: '#f5f5f5', marginBottom: 20 },
+  productImgBoxColumn: { width: '100%', height: width * 0.75, position: 'relative' },
+
+  modalBackdrop: { flex: 1, backgroundColor: '#fff' },
+  closeBtn: { position: 'absolute', top: 55, right: 22, zIndex: 10 },
+  closeBtnInner: { backgroundColor: '#fff', borderRadius: 24, padding: 11, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, elevation: 8, borderWidth: 1, borderColor: '#f0f0f0' },
+  modalImageFixed: { position: 'absolute', top: 50, left: 0, right: 0, height: height * 0.5, zIndex: 1 },
+  modalImage: { width: '100%', height: '100%' },
+  modalSoldOut: { position: 'absolute', top: '45%', left: 0, right: 0, backgroundColor: '#DC2626', paddingVertical: 14, alignItems: 'center' },
+  modalSoldOutText: { color: '#fff', fontSize: 11, letterSpacing: 3, fontFamily: FONT_MODERN, fontWeight: '700' },
+  modalFav: { position: 'absolute', bottom: 18, right: 18, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 28, padding: 12, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12 },
+  modalScrollContent: { flex: 1, marginTop: height * 0.5 + 50 },
+  modalContent: { padding: 28, paddingTop: 24 },
+  modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
+  modalBrand: { fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8, fontFamily: FONT_MODERN, fontWeight: '700' },
+  modalTitle: { fontSize: 24, color: '#1a1a1a', lineHeight: 32, fontFamily: FONT_TITLE, fontWeight: '400', letterSpacing: 0.2 },
+  modalPriceBox: { alignItems: 'flex-end', justifyContent: 'center' },
+  modalPrice: { fontSize: 28, color: '#1a1a1a', fontFamily: FONT_TITLE, fontWeight: '600', letterSpacing: 0.5 },
+  modalDivider: { height: 1, backgroundColor: '#f0f0f0', marginBottom: 24 },
+  modalSection: { marginBottom: 24 },
+  modalSectionLabel: { fontSize: 12, color: '#1a1a1a', textTransform: 'uppercase', letterSpacing: 2, marginBottom: 14, fontFamily: FONT_MODERN, fontWeight: '700' },
+  modalDesc: { fontSize: 15, color: '#555', lineHeight: 27, fontFamily: FONT_BODY, letterSpacing: 0.3 },
+  readMore: { fontSize: 13, color: '#1a1a1a', fontFamily: FONT_MODERN, fontWeight: '700', letterSpacing: 0.5, textDecorationLine: 'underline' },
+  infoGrid: { flexDirection: 'row', gap: 16 },
+  infoBox: { flex: 1, backgroundColor: '#fafafa', borderRadius: 12, padding: 18, alignItems: 'center', borderWidth: 1, borderColor: '#f0f0f0' },
+  infoLabel: { fontSize: 10, color: '#999', textTransform: 'uppercase', letterSpacing: 1.2, marginTop: 10, marginBottom: 4, fontFamily: FONT_MODERN, fontWeight: '700' },
+  infoValue: { fontSize: 13, color: '#1a1a1a', fontFamily: FONT_BODY, fontWeight: '600', textAlign: 'center' },
+
+  modalFooter: { position: 'absolute', bottom: -70, left: 0, right: 0, backgroundColor: '#fff', paddingHorizontal: 24, paddingTop: 22, paddingBottom: 0, borderTopWidth: 1, borderTopColor: '#f0f0f0', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15, zIndex: 2 },
+
+  addBtn: { backgroundColor: '#1a1a1a', borderRadius: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 19, gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 14, elevation: 10, marginBottom: Platform.OS === 'ios' ? 64 : 40 },
+  addBtnDisabled: { backgroundColor: '#f0f0f0' },
+  addBtnText: { color: '#fff', fontSize: 13, letterSpacing: 2.2, fontFamily: FONT_MODERN, fontWeight: '700' },
+
+  toast: { position: 'absolute', top: Platform.OS === 'ios' ? 60 : 50, left: 20, right: 20, borderRadius: 18, zIndex: 99999, flexDirection: 'row', alignItems: 'center', padding: 20, paddingVertical: 18, gap: 14, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 20 },
+  toastText: { color: '#fff', fontSize: 15, flex: 1, fontFamily: FONT_BODY, fontWeight: '600', letterSpacing: 0.3 },
+  toastSwipeIndicator: { position: 'absolute', top: 8, left: '45%', width: 35, height: 4, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 2 },
 });

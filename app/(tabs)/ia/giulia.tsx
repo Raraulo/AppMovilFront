@@ -19,6 +19,7 @@ import {
   Image,
   Keyboard,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   ScrollView,
   StatusBar,
@@ -38,6 +39,13 @@ interface Message {
   isUser: boolean;
   timestamp: Date;
   productos?: any[];
+}
+
+interface Conversation {
+  id: string;
+  nombre: string;
+  fecha: Date;
+  mensajes: Message[];
 }
 
 const ProductCard = ({ producto }: { producto: any }) => (
@@ -83,15 +91,23 @@ export default function GiuliaScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [productos, setProductos] = useState<any[]>([]);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [conversaciones, setConversaciones] = useState<Conversation[]>([]);
+  const [conversacionActual, setConversacionActual] = useState<string | null>(null);
+  const [modalHistorial, setModalHistorial] = useState(false);
 
   useEffect(() => {
     checkAuth();
     cargarProductos();
+    cargarConversaciones();
   }, [apiUrl]);
 
   useEffect(() => {
     if (isLogged) {
-      cargarMensajes();
+      if (!conversacionActual) {
+        crearNuevaConversacion();
+      } else {
+        cargarMensajesConversacion(conversacionActual);
+      }
       
       const keyboardDidShowListener = Keyboard.addListener(
         'keyboardDidShow',
@@ -115,7 +131,7 @@ export default function GiuliaScreen() {
         keyboardDidHideListener.remove();
       };
     }
-  }, [isLogged]);
+  }, [isLogged, conversacionActual]);
 
   useEffect(() => {
     if (!checkingAuth) {
@@ -166,36 +182,80 @@ export default function GiuliaScreen() {
     }
   };
 
-  const cargarMensajes = async () => {
+  const cargarConversaciones = async () => {
     try {
-      const saved = await AsyncStorage.getItem("giuliaai_messages");
+      const saved = await AsyncStorage.getItem("giulia_conversaciones");
       if (saved) {
         const parsed = JSON.parse(saved);
-        setMessages(parsed.map((m: any) => ({ 
-          ...m, 
-          timestamp: new Date(m.timestamp),
-          productos: m.productos || []
+        setConversaciones(parsed.map((c: any) => ({
+          ...c,
+          fecha: new Date(c.fecha),
+          mensajes: c.mensajes.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
         })));
-      } else {
-        const welcomeMessage: Message = {
-          id: Date.now().toString(),
-          text: "Bienvenido a Maison Des Senteurs ✨\n\nSoy Giulia, su asistente personal de fragancias de lujo. Estoy aquí para ayudarle a descubrir el perfume perfecto que complemente su estilo y personalidad.\n\n¿Qué tipo de fragancia está buscando hoy?",
-          isUser: false,
-          timestamp: new Date(),
-        };
-        setMessages([welcomeMessage]);
       }
     } catch (error) {
-      console.error("Error cargando mensajes:", error);
+      console.error("Error cargando conversaciones:", error);
     }
   };
 
-  const guardarMensajes = async (msgs: Message[]) => {
+  const guardarConversaciones = async (convs: Conversation[]) => {
     try {
-      await AsyncStorage.setItem("giuliaai_messages", JSON.stringify(msgs));
+      await AsyncStorage.setItem("giulia_conversaciones", JSON.stringify(convs));
     } catch (error) {
-      console.error("Error guardando mensajes:", error);
+      console.error("Error guardando conversaciones:", error);
     }
+  };
+
+  const crearNuevaConversacion = () => {
+    const welcomeMessage: Message = {
+      id: Date.now().toString(),
+      text: "Bienvenido a Maison Des Senteurs ✨\n\nSoy Giulia, su asistente personal de fragancias de lujo. Estoy aquí para ayudarle a descubrir el perfume perfecto que complemente su estilo y personalidad.\n\n¿Qué tipo de fragancia está buscando hoy?",
+      isUser: false,
+      timestamp: new Date(),
+    };
+
+    const nuevaConv: Conversation = {
+      id: Date.now().toString(),
+      nombre: "Nueva conversación",
+      fecha: new Date(),
+      mensajes: [welcomeMessage]
+    };
+
+    const nuevasConvs = [nuevaConv, ...conversaciones];
+    setConversaciones(nuevasConvs);
+    setConversacionActual(nuevaConv.id);
+    setMessages([welcomeMessage]);
+    guardarConversaciones(nuevasConvs);
+  };
+
+  const cargarMensajesConversacion = (convId: string) => {
+    const conv = conversaciones.find(c => c.id === convId);
+    if (conv) {
+      setMessages(conv.mensajes);
+      setConversacionActual(convId);
+    }
+  };
+
+  const actualizarConversacionActual = (nuevosMensajes: Message[]) => {
+    if (!conversacionActual) return;
+
+    const nuevasConvs = conversaciones.map(c => {
+      if (c.id === conversacionActual) {
+        let nuevoNombre = c.nombre;
+        if (c.nombre === "Nueva conversación") {
+          const primerMensajeUsuario = nuevosMensajes.find(m => m.isUser);
+          if (primerMensajeUsuario) {
+            const palabras = primerMensajeUsuario.text.trim().split(/\s+/).slice(0, 4);
+            nuevoNombre = palabras.join(' ') + '...';
+          }
+        }
+        return { ...c, nombre: nuevoNombre, mensajes: nuevosMensajes, fecha: new Date() };
+      }
+      return c;
+    });
+
+    setConversaciones(nuevasConvs);
+    guardarConversaciones(nuevasConvs);
   };
 
   const extraerProductosRecomendados = (respuesta: string, productosDisponibles: any[]): any[] => {
@@ -210,50 +270,53 @@ export default function GiuliaScreen() {
     return productosEncontrados.slice(0, 3);
   };
 
-  const enviarMensaje = async () => {
-    if (!inputText.trim() || isLoading) return;
+// app/(tabs)/ia/giulia.tsx
+// ... (mantén todo el código anterior hasta la función enviarMensaje)
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      isUser: true,
-      timestamp: new Date(),
-    };
+const enviarMensaje = async () => {
+  if (!inputText.trim() || isLoading) return;
 
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
-    const consultaUsuario = inputText.trim();
-    setInputText("");
-    setIsLoading(true);
+  const userMessage: Message = {
+    id: Date.now().toString(),
+    text: inputText.trim(),
+    isUser: true,
+    timestamp: new Date(),
+  };
 
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 100);
+  const updatedMessages = [...messages, userMessage];
+  setMessages(updatedMessages);
+  const consultaUsuario = inputText.trim();
+  setInputText("");
+  setIsLoading(true);
 
-    try {
-      const consultaLower = consultaUsuario.toLowerCase();
-      const esMasculino = /hombre|masculino|caballero|él|para él/i.test(consultaLower);
-      const esFemenino = /mujer|femenino|dama|ella|para ella/i.test(consultaLower);
-      
-      let productosRelevantes = productos.filter(p => p.stock > 0);
-      
-      if (esMasculino) {
-        productosRelevantes = productosRelevantes.filter(p => 
-          p.genero === "Masculino" || p.genero === "Unisex"
-        );
-      } else if (esFemenino) {
-        productosRelevantes = productosRelevantes.filter(p => 
-          p.genero === "Femenino" || p.genero === "Unisex"
-        );
-      }
-      
-      productosRelevantes = productosRelevantes.slice(0, 20);
+  setTimeout(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, 100);
 
-      const inventarioTexto = productosRelevantes
-        .map((p) => `${p.nombre} de ${p.marca_nombre}: $${p.precio}. ${p.descripcion || ''}`)
-        .join("\n");
+  try {
+    const consultaLower = consultaUsuario.toLowerCase();
+    const esMasculino = /hombre|masculino|caballero|él|para él/i.test(consultaLower);
+    const esFemenino = /mujer|femenino|dama|ella|para ella/i.test(consultaLower);
+    
+    let productosRelevantes = productos.filter(p => p.stock > 0);
+    
+    if (esMasculino) {
+      productosRelevantes = productosRelevantes.filter(p => 
+        p.genero === "Masculino" || p.genero === "Unisex"
+      );
+    } else if (esFemenino) {
+      productosRelevantes = productosRelevantes.filter(p => 
+        p.genero === "Femenino" || p.genero === "Unisex"
+      );
+    }
+    
+    productosRelevantes = productosRelevantes.slice(0, 20);
 
-      const prompt = `Eres Giulia, experta en fragancias de Maison Des Senteurs. Recomienda perfumes SOLO del siguiente inventario:
+    const inventarioTexto = productosRelevantes
+      .map((p) => `${p.nombre} de ${p.marca_nombre}: $${p.precio}. ${p.descripcion || ''}`)
+      .join("\n");
+
+    const prompt = `Eres Giulia, experta en fragancias de Maison Des Senteurs. Recomienda perfumes SOLO del siguiente inventario:
 
 ${inventarioTexto}
 
@@ -267,82 +330,85 @@ IMPORTANTE:
 - Explica brevemente por qué es adecuado
 - Usa emojis sutiles solo para dar elegancia (✨🌸💎)`;
 
-      const response = await fetch("https://api.perplexity.ai/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+    console.log("📤 Enviando a Perplexity...");
 
-          Authorization: `Bearer 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`,
-        },
-        
-        body: JSON.stringify({
-          model: "sonar",
-          messages: [
-            {
-              role: "system",
-              content: "Eres Giulia, asesora de fragancias de lujo. Respondes en texto plano sin asteriscos ni formato markdown. Escribe de forma elegante y profesional.",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
-      });
+    const response = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer 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", // ✅ TU API KEY
+      },
+      body: JSON.stringify({
+        model: "sonar",
+        messages: [
+          {
+            role: "system",
+            content: "Eres Giulia, asesora de fragancias de lujo. Respondes en texto plano sin asteriscos ni formato markdown. Escribe de forma elegante y profesional.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        max_tokens: 500,
+        temperature: 0.7,
+      }),
+    });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("Error de API:", errorData);
-        throw new Error(`Error de API: ${response.status}`);
-      }
+    console.log("📥 Status:", response.status);
 
-      const data = await response.json();
-      let aiResponse = data.choices[0]?.message?.content || "Disculpe, no pude procesar su solicitud.";
-      
-      aiResponse = aiResponse
-        .replace(/\*\*/g, '')
-        .replace(/\*/g, '')
-        .replace(/#{1,6}\s/g, '')
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
-
-      const productosRecomendados = extraerProductosRecomendados(aiResponse, productosRelevantes);
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: aiResponse,
-        isUser: false,
-        timestamp: new Date(),
-        productos: productosRecomendados,
-      };
-
-      const finalMessages = [...updatedMessages, aiMessage];
-      setMessages(finalMessages);
-      guardarMensajes(finalMessages);
-
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 200);
-    } catch (error) {
-      console.error("❌ Error llamando a Perplexity AI:", error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: "Disculpe las molestias. Hubo un inconveniente técnico. Por favor, intente nuevamente.",
-        isUser: false,
-        timestamp: new Date(),
-      };
-      const finalMessages = [...updatedMessages, errorMessage];
-      setMessages(finalMessages);
-      guardarMensajes(finalMessages);
-    } finally {
-      setIsLoading(false);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("❌ Error API:", errorText);
+      throw new Error(`Error ${response.status}: No se pudo conectar con el servicio de IA`);
     }
-  };
 
-  const limpiarChat = async () => {
-    await AsyncStorage.removeItem("giuliaai_messages");
-    await cargarMensajes();
+    const data = await response.json();
+    let aiResponse = data.choices[0]?.message?.content || "Disculpe, no pude procesar su solicitud.";
+    
+    aiResponse = aiResponse
+      .replace(/\*\*/g, '')
+      .replace(/\*/g, '')
+      .replace(/#{1,6}\s/g, '')
+      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+
+    const productosRecomendados = extraerProductosRecomendados(aiResponse, productosRelevantes);
+
+    const aiMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: aiResponse,
+      isUser: false,
+      timestamp: new Date(),
+      productos: productosRecomendados,
+    };
+
+    const finalMessages = [...updatedMessages, aiMessage];
+    setMessages(finalMessages);
+    actualizarConversacionActual(finalMessages);
+
+    console.log("✅ Respuesta exitosa");
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 200);
+  } catch (error: any) {
+    console.error("❌ Error:", error);
+    const errorMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      text: "Disculpe, hubo un problema técnico. Por favor verifique su conexión o intente más tarde.",
+      isUser: false,
+      timestamp: new Date(),
+    };
+    const finalMessages = [...updatedMessages, errorMessage];
+    setMessages(finalMessages);
+    actualizarConversacionActual(finalMessages);
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
+  const detenerIA = () => {
+    setIsLoading(false);
   };
 
   if (!fontsLoaded || checkingAuth) {
@@ -434,20 +500,14 @@ IMPORTANTE:
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
+      {/* ✅ HEADER CON BOTÓN HISTORIAL */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <View style={styles.backButtonCircle}>
-            <Ionicons name="arrow-back" size={22} color="#000" />
-          </View>
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <View style={styles.headerTitleRow}>
-            <Text style={styles.headerTitle}>Giulia AI</Text>
-          </View>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>Giulia</Text>
           <Text style={styles.headerSubtitle}>Asesora de fragancias de lujo</Text>
         </View>
-        <TouchableOpacity onPress={limpiarChat} style={styles.clearButton}>
-          <Ionicons name="refresh-outline" size={22} color="#666" />
+        <TouchableOpacity onPress={() => setModalHistorial(true)} style={styles.historyButton}>
+          <Ionicons name="time-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
@@ -524,7 +584,12 @@ IMPORTANTE:
               placeholder="¿Qué buscas… o debería intuirlo?..."
               placeholderTextColor="#999"
               value={inputText}
-              onChangeText={setInputText}
+              onChangeText={(text) => {
+                setInputText(text);
+                setTimeout(() => {
+                  scrollViewRef.current?.scrollToEnd({ animated: true });
+                }, 50);
+              }}
               multiline
               maxLength={500}
               editable={!isLoading}
@@ -534,21 +599,69 @@ IMPORTANTE:
                 }, 300);
               }}
             />
-            <TouchableOpacity
-              style={[styles.sendButton, (!inputText.trim() || isLoading) && styles.sendButtonDisabled]}
-              onPress={enviarMensaje}
-              disabled={!inputText.trim() || isLoading}
-              activeOpacity={0.7}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
+            {isLoading ? (
+              <TouchableOpacity
+                style={styles.stopButton}
+                onPress={detenerIA}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="stop" size={20} color="#fff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+                onPress={enviarMensaje}
+                disabled={!inputText.trim()}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="send" size={20} color="#fff" />
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ✅ MODAL HISTORIAL SIN BOTÓN ELIMINAR */}
+      <Modal visible={modalHistorial} animationType="slide" transparent onRequestClose={() => setModalHistorial(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Historial</Text>
+              <TouchableOpacity onPress={() => setModalHistorial(false)}>
+                <Ionicons name="close" size={28} color="#000" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView style={styles.conversationsList}>
+              {conversaciones.length === 0 ? (
+                <View style={styles.emptyHistory}>
+                  <Ionicons name="chatbubbles-outline" size={60} color="#ddd" />
+                  <Text style={styles.emptyHistoryText}>No hay conversaciones guardadas</Text>
+                </View>
+              ) : (
+                conversaciones.map((conv) => (
+                  <TouchableOpacity
+                    key={conv.id}
+                    style={[styles.conversationItem, conversacionActual === conv.id && styles.conversationItemActive]}
+                    onPress={() => { cargarMensajesConversacion(conv.id); setModalHistorial(false); }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.conversationIcon}>
+                      <Ionicons name="chatbubbles" size={20} color="#666" />
+                    </View>
+                    <View style={styles.conversationInfo}>
+                      <Text style={styles.conversationName}>{conv.nombre}</Text>
+                      <Text style={styles.conversationDate}>
+                        {conv.fecha.toLocaleDateString("es-ES")} - {conv.mensajes.length} mensajes
+                      </Text>
+                    </View>
+                    {conversacionActual === conv.id && <Ionicons name="checkmark-circle" size={24} color="#10B981" />}
+                  </TouchableOpacity>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -700,46 +813,29 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  backButtonCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  clearButton: {
-    width: 40,
-    height: 40,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerCenter: {
+  headerLeft: {
     flex: 1,
-    alignItems: "center",
-  },
-  headerTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
   },
   headerTitle: {
-    fontSize: 22,
+    fontSize: 24,
     fontFamily: "PlayfairDisplay_700Bold",
     color: "#000",
     letterSpacing: 0.5,
   },
   headerSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     fontFamily: "PlayfairDisplay_400Regular",
     color: "#666",
     marginTop: 2,
     letterSpacing: 0.3,
+  },
+  historyButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
   },
   messagesContainer: {
     flex: 1,
@@ -884,7 +980,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#f0f0f0",
     paddingHorizontal: 16,
     paddingTop: 12,
-     paddingBottom: Platform.OS === "ios" ? 100 : 80, // ✨ CAMBIO: justo arriba del navbar
+    paddingBottom: Platform.OS === "ios" ? 100 : 80,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
@@ -927,5 +1023,94 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     opacity: 0.4,
+  },
+  stopButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#EF4444",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    paddingTop: 20,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === "ios" ? 40 : 20,
+    maxHeight: height * 0.8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontFamily: "PlayfairDisplay_700Bold",
+    color: "#000",
+  },
+  conversationsList: {
+    maxHeight: height * 0.6,
+  },
+  emptyHistory: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+  },
+  emptyHistoryText: {
+    fontSize: 16,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "#999",
+    marginTop: 16,
+  },
+  conversationItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+    marginBottom: 12,
+  },
+  conversationItemActive: {
+    backgroundColor: "#f0fdf4",
+    borderColor: "#10B981",
+  },
+  conversationIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
+  },
+  conversationInfo: {
+    flex: 1,
+  },
+  conversationName: {
+    fontSize: 16,
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    color: "#000",
+    marginBottom: 4,
+  },
+  conversationDate: {
+    fontSize: 12,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "#666",
   },
 });

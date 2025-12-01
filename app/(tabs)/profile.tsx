@@ -1,10 +1,4 @@
 // app/(tabs)/profile.tsx
-import {
-  PlayfairDisplay_400Regular,
-  PlayfairDisplay_600SemiBold,
-  PlayfairDisplay_700Bold,
-  useFonts,
-} from "@expo-google-fonts/playfair-display";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { ResizeMode, Video } from 'expo-av';
@@ -28,6 +22,11 @@ import { KeyboardAwareScrollView } from "react-native-keyboard-aware-scroll-view
 import { useApi } from "../../contexts/ApiContext";
 
 const { width, height } = Dimensions.get("window");
+
+// 🎨 TIPOGRAFÍA PREMIUM NATIVA
+const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
+const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
+const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
 
 // ✨ TOAST PROFESIONAL
 const Toast = ({ visible, message, type = "success", onHide }: any) => {
@@ -266,12 +265,6 @@ export default function ProfileScreen() {
   const apiUrl = useApi();
   const videoRef = useRef<Video>(null);
 
-  const [fontsLoaded] = useFonts({
-    PlayfairDisplay_400Regular,
-    PlayfairDisplay_600SemiBold,
-    PlayfairDisplay_700Bold,
-  });
-
   const [cliente, setCliente] = useState<any>(null);
   const [isLogged, setIsLogged] = useState(false);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
@@ -501,14 +494,6 @@ export default function ProfileScreen() {
     setShowNotification(false);
     setMostrarPerfil(true);
   };
-
-  if (!fontsLoaded) {
-    return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Cargando...</Text>
-      </View>
-    );
-  }
 
   // 🛑 ESTADO NO LOGUEADO CON VIDEO
   if (!isLogged) {
@@ -867,10 +852,11 @@ const styles = StyleSheet.create({
   toastText: {
     color: "#fff",
     fontSize: 14,
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     marginLeft: 12,
     flex: 1,
     letterSpacing: 0.3,
+    fontWeight: '600',
   },
 
   // ✨ MODAL DE CONFIRMACIÓN
@@ -915,15 +901,16 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   confirmTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 24,
     color: "#111",
     textAlign: "center",
     marginBottom: 16,
     letterSpacing: 0.5,
+    fontWeight: '700',
   },
   confirmMessage: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 15,
     color: "#666",
     textAlign: "center",
@@ -945,10 +932,11 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   confirmButtonTextPrimary: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 16,
     color: "#fff",
     letterSpacing: 0.5,
+    fontWeight: '700',
   },
   confirmButtonSecondary: {
     backgroundColor: "#f5f5f5",
@@ -957,10 +945,11 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   confirmButtonTextSecondary: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 16,
     color: "#666",
     letterSpacing: 0.5,
+    fontWeight: '600',
   },
 
   // ✨ NO LOGUEADO CON VIDEO
@@ -996,7 +985,7 @@ const styles = StyleSheet.create({
     textAlign: "center", 
     marginBottom: 30, 
     lineHeight: 22,
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     textShadowColor: 'rgba(0, 0, 0, 0.75)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 5,
@@ -1020,8 +1009,9 @@ const styles = StyleSheet.create({
   primaryButtonText: { 
     color: "#000", 
     fontSize: 14, 
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     letterSpacing: 1.5,
+    fontWeight: '700',
   },
   secondaryButton: {
     flexDirection: "row",
@@ -1038,8 +1028,9 @@ const styles = StyleSheet.create({
   secondaryButtonText: { 
     color: "#fff", 
     fontSize: 14, 
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     letterSpacing: 1.5,
+    fontWeight: '700',
   },
 
   // ✨ HEADER LOGUEADO
@@ -1059,15 +1050,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   welcomeText: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 14,
     color: "#666",
   },
   titleHeader: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 20,
     color: "#000",
     letterSpacing: 0.5,
+    fontWeight: '700',
   },
 
   // ✨ NOTIFICACIÓN FLOTANTE (MÁS ABAJO)
@@ -1101,14 +1093,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   notificationTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 16,
     color: "#fff",
     marginBottom: 4,
     letterSpacing: 0.5,
+    fontWeight: '700',
   },
   notificationMessage: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 13,
     color: "#fff",
     opacity: 0.95,
@@ -1126,9 +1119,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   notificationButtonSecondaryText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 13,
     color: "#fff",
+    fontWeight: '600',
   },
   notificationButtonPrimary: {
     flex: 1,
@@ -1138,9 +1132,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   notificationButtonPrimaryText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 13,
     color: "#D97706",
+    fontWeight: '600',
   },
 
   // ✨ CONTENIDO
@@ -1152,11 +1147,12 @@ const styles = StyleSheet.create({
     marginTop: 25,
   },
   sectionTitle: {
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     fontSize: 20,
     color: "#000",
     marginBottom: 15,
     letterSpacing: 0.5,
+    fontWeight: '700',
   },
 
   // ✨ TARJETAS DE ACCIÓN
@@ -1191,14 +1187,15 @@ const styles = StyleSheet.create({
     borderColor: '#f0f0f0',
   },
   actionCardTitle: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 15,
     color: "#000",
     marginBottom: 4,
     textAlign: 'center',
+    fontWeight: '600',
   },
   actionCardSubtitle: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 12,
     color: "#666",
     textAlign: 'center',
@@ -1235,9 +1232,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   toggleProfileText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     color: "#000",
     fontSize: 15,
+    fontWeight: '600',
   },
 
   // ✨ FORMULARIO
@@ -1251,11 +1249,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   inputLabel: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 13,
     color: "#000",
     marginBottom: 8,
     letterSpacing: 0.3,
+    fontWeight: '600',
   },
   input: {
     backgroundColor: "#fff",
@@ -1265,7 +1264,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     borderWidth: 1.5,
     borderColor: "#e8e8e8",
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
   },
   inputDisabled: {
     backgroundColor: "#f5f5f5",
@@ -1273,7 +1272,7 @@ const styles = StyleSheet.create({
     padding: 14,
     borderRadius: 12,
     fontSize: 15,
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     color: "#666",
     borderWidth: 1.5,
     borderColor: "#e8e8e8",
@@ -1301,9 +1300,10 @@ const styles = StyleSheet.create({
     borderColor: "#000",
   },
   genderOptionText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 14,
     color: "#666",
+    fontWeight: '600',
   },
   genderOptionTextActive: {
     color: "#fff",
@@ -1328,8 +1328,9 @@ const styles = StyleSheet.create({
   saveText: { 
     color: "#fff", 
     fontSize: 15, 
-    fontFamily: "PlayfairDisplay_700Bold",
+    fontFamily: FONT_TITLE,
     letterSpacing: 1,
+    fontWeight: '700',
   },
 
   // ✨ BENEFICIOS REDISEÑADOS - SIN APARIENCIA DE BOTÓN
@@ -1361,13 +1362,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   benefitTitle: { 
-    fontFamily: "PlayfairDisplay_600SemiBold", 
+    fontFamily: FONT_MODERN, 
     fontSize: 15,
     color: "#000", 
     marginBottom: 4,
+    fontWeight: '600',
   },
   benefitText: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 13,
     color: "#666",
     lineHeight: 18,
@@ -1388,10 +1390,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   logoutText: {
-    fontFamily: "PlayfairDisplay_600SemiBold",
+    fontFamily: FONT_MODERN,
     fontSize: 15,
     color: "#EF4444",
     letterSpacing: 0.5,
+    fontWeight: '600',
   },
 
   // ✨ PRIVACIDAD
@@ -1401,7 +1404,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   privacyLinkText: {
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: FONT_BODY,
     fontSize: 13,
     color: "#666",
     textDecorationLine: "underline",
@@ -1416,7 +1419,8 @@ const styles = StyleSheet.create({
   },
   loadingText: { 
     fontSize: 16, 
-    fontFamily: "PlayfairDisplay_600SemiBold", 
-    color: "#000" 
+    fontFamily: FONT_MODERN, 
+    color: "#000",
+    fontWeight: '600',
   },
 });

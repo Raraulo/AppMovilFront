@@ -76,17 +76,27 @@ function getActiveCardKey(userId: string): string {
    🔹 Funciones base
 --------------------------------------------------------*/
 async function getList(key: string): Promise<Item[]> {
-  const raw = await AsyncStorage.getItem(key);
-  return raw ? JSON.parse(raw) : [];
+  try {
+    const raw = await AsyncStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch (error) {
+    console.error(`Error al obtener lista ${key}:`, error);
+    return [];
+  }
 }
 
 async function setList(key: string, list: Item[]) {
-  await AsyncStorage.setItem(key, JSON.stringify(list));
+  try {
+    await AsyncStorage.setItem(key, JSON.stringify(list));
 
-  if (key === CART_KEY) {
-    storageEvents.emit("cartChanged");
-  } else if (key === FAV_KEY) {
-    storageEvents.emit("favoritesChanged");
+    if (key === CART_KEY) {
+      storageEvents.emit("cartChanged");
+    } else if (key === FAV_KEY) {
+      storageEvents.emit("favoritesChanged");
+    }
+  } catch (error) {
+    console.error(`Error al guardar lista ${key}:`, error);
+    throw error;
   }
 }
 
@@ -103,20 +113,25 @@ function removeById(list: Item[], id: number) {
    🛒 Carrito de compras
 --------------------------------------------------------*/
 export async function addToCart(item: Item) {
-  const list = await getList(CART_KEY);
-  const existing = list.find((i) => i.id === item.id);
+  try {
+    const list = await getList(CART_KEY);
+    const existing = list.find((i) => i.id === item.id);
 
-  let updated;
-  if (existing) {
-    updated = list.map((i) =>
-      i.id === item.id ? { ...i, cantidad: (i.cantidad || 1) + 1 } : i
-    );
-  } else {
-    updated = [...list, { ...item, cantidad: 1 }];
+    let updated;
+    if (existing) {
+      updated = list.map((i) =>
+        i.id === item.id ? { ...i, cantidad: (i.cantidad || 1) + 1 } : i
+      );
+    } else {
+      updated = [...list, { ...item, cantidad: 1 }];
+    }
+
+    await setList(CART_KEY, updated);
+    return updated;
+  } catch (error) {
+    console.error('Error al agregar al carrito:', error);
+    throw error;
   }
-
-  await setList(CART_KEY, updated);
-  return updated;
 }
 
 export async function getCart() {
@@ -124,39 +139,63 @@ export async function getCart() {
 }
 
 export async function removeFromCart(id: number) {
-  const list = await getList(CART_KEY);
-  const updated = removeById(list, id);
-  await setList(CART_KEY, updated);
-  return updated;
+  try {
+    const list = await getList(CART_KEY);
+    const updated = removeById(list, id);
+    await setList(CART_KEY, updated);
+    return updated;
+  } catch (error) {
+    console.error('Error al eliminar del carrito:', error);
+    throw error;
+  }
 }
 
 export async function updateCart(newList: Item[]) {
-  await setList(CART_KEY, newList);
-  return newList;
+  try {
+    await setList(CART_KEY, newList);
+    return newList;
+  } catch (error) {
+    console.error('Error al actualizar carrito:', error);
+    throw error;
+  }
 }
 
 export async function updateCartQuantity(id: number, cantidad: number) {
-  const list = await getList(CART_KEY);
-  const updated = list.map((i) =>
-    i.id === id ? { ...i, cantidad } : i
-  );
-  await setList(CART_KEY, updated);
-  return updated;
+  try {
+    const list = await getList(CART_KEY);
+    const updated = list.map((i) =>
+      i.id === id ? { ...i, cantidad } : i
+    );
+    await setList(CART_KEY, updated);
+    return updated;
+  } catch (error) {
+    console.error('Error al actualizar cantidad:', error);
+    throw error;
+  }
 }
 
 export async function clearCart() {
-  await AsyncStorage.removeItem(CART_KEY);
-  storageEvents.emit("cartChanged");
+  try {
+    await AsyncStorage.removeItem(CART_KEY);
+    storageEvents.emit("cartChanged");
+  } catch (error) {
+    console.error('Error al limpiar carrito:', error);
+  }
 }
 
 /* -------------------------------------------------------
    ❤️ Favoritos
 --------------------------------------------------------*/
 export async function addToFavorites(item: Item) {
-  const list = await getList(FAV_KEY);
-  const updated = addUnique(list, item);
-  await setList(FAV_KEY, updated);
-  return updated;
+  try {
+    const list = await getList(FAV_KEY);
+    const updated = addUnique(list, item);
+    await setList(FAV_KEY, updated);
+    return updated;
+  } catch (error) {
+    console.error('Error al agregar a favoritos:', error);
+    throw error;
+  }
 }
 
 export async function getFavorites() {
@@ -164,15 +203,24 @@ export async function getFavorites() {
 }
 
 export async function removeFromFavorites(id: number) {
-  const list = await getList(FAV_KEY);
-  const updated = removeById(list, id);
-  await setList(FAV_KEY, updated);
-  return updated;
+  try {
+    const list = await getList(FAV_KEY);
+    const updated = removeById(list, id);
+    await setList(FAV_KEY, updated);
+    return updated;
+  } catch (error) {
+    console.error('Error al eliminar de favoritos:', error);
+    throw error;
+  }
 }
 
 export async function clearFavorites() {
-  await AsyncStorage.removeItem(FAV_KEY);
-  storageEvents.emit("favoritesChanged");
+  try {
+    await AsyncStorage.removeItem(FAV_KEY);
+    storageEvents.emit("favoritesChanged");
+  } catch (error) {
+    console.error('Error al limpiar favoritos:', error);
+  }
 }
 
 /* -------------------------------------------------------
@@ -199,12 +247,12 @@ export async function getCards(): Promise<Card[]> {
     
     // ✅ MIGRACIÓN: Agregar IDs a tarjetas viejas sin ID
     let needsUpdate = false;
-    cards = cards.map((card: any) => {
+    cards = cards.map((card: any, index: number) => {
       if (!card.id) {
         needsUpdate = true;
         return {
           ...card,
-          id: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+          id: `card_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`
         };
       }
       return card;
@@ -253,17 +301,21 @@ export async function addCard(cardData: Omit<Card, 'id'>): Promise<Card[]> {
     const cards = await getCards();
     
     // Verificar si la tarjeta ya existe (comparando sin espacios)
+    const numeroSinEspacios = cardData.numero.replace(/\s/g, '');
     const exists = cards.some(c => 
-      c.numero.replace(/\s/g, '') === cardData.numero.replace(/\s/g, '')
+      c.numero.replace(/\s/g, '') === numeroSinEspacios
     );
+    
     if (exists) {
       throw new Error('Esta tarjeta ya está registrada');
     }
 
     // ✅ GENERAR ID ÚNICO para la nueva tarjeta
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substr(2, 9);
     const newCard: Card = {
       ...cardData,
-      id: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      id: `card_${timestamp}_${random}`
     };
 
     const updatedCards = [newCard, ...cards];
@@ -274,6 +326,7 @@ export async function addCard(cardData: Omit<Card, 'id'>): Promise<Card[]> {
       await setActiveCard(newCard.id);
     }
     
+    console.log('✅ Tarjeta agregada:', newCard.id);
     return updatedCards;
   } catch (error) {
     console.error('❌ Error al agregar tarjeta:', error);
@@ -286,9 +339,18 @@ export async function addCard(cardData: Omit<Card, 'id'>): Promise<Card[]> {
  */
 export async function removeCard(cardId: string): Promise<Card[]> {
   try {
+    if (!cardId || typeof cardId !== 'string') {
+      throw new Error('ID de tarjeta inválido');
+    }
+
     const cards = await getCards();
-    const updatedCards = cards.filter(c => c.id !== cardId);
+    const cardToDelete = cards.find(c => c.id === cardId);
     
+    if (!cardToDelete) {
+      throw new Error('Tarjeta no encontrada');
+    }
+
+    const updatedCards = cards.filter(c => c.id !== cardId);
     await saveCards(updatedCards);
     
     // ✅ Si se eliminó la tarjeta activa, actualizar
@@ -297,12 +359,15 @@ export async function removeCard(cardId: string): Promise<Card[]> {
       if (updatedCards.length > 0) {
         // Establecer la primera tarjeta restante como activa
         await setActiveCard(updatedCards[0].id);
+        console.log('✅ Nueva tarjeta activa:', updatedCards[0].id);
       } else {
         // Si no quedan tarjetas, limpiar la activa
         await clearActiveCard();
+        console.log('✅ No quedan tarjetas, activa limpiada');
       }
     }
     
+    console.log('✅ Tarjeta eliminada:', cardId);
     return updatedCards;
   } catch (error) {
     console.error('❌ Error al eliminar tarjeta:', error);
@@ -321,6 +386,11 @@ export async function getActiveCardId(): Promise<string | null> {
     const activeKey = getActiveCardKey(userId);
     const activeCardId = await AsyncStorage.getItem(activeKey);
     
+    // ✅ Validar que el ID no sea una cadena vacía
+    if (!activeCardId || activeCardId.trim() === '') {
+      return null;
+    }
+    
     return activeCardId;
   } catch (error) {
     console.error('❌ Error al obtener tarjeta activa:', error);
@@ -338,8 +408,8 @@ export async function setActiveCard(cardId: string): Promise<void> {
       throw new Error('No hay usuario autenticado');
     }
 
-    // ✅ VALIDACIÓN ESTRICTA: Verificar que cardId no sea null/undefined
-    if (!cardId || typeof cardId !== 'string') {
+    // ✅ VALIDACIÓN ESTRICTA: Verificar que cardId no sea null/undefined/vacío
+    if (!cardId || typeof cardId !== 'string' || cardId.trim() === '') {
       console.error('❌ ID de tarjeta inválido:', cardId);
       throw new Error('ID de tarjeta inválido');
     }
@@ -370,12 +440,22 @@ export async function setActiveCard(cardId: string): Promise<void> {
 export async function getActiveCard(): Promise<Card | null> {
   try {
     const activeCardId = await getActiveCardId();
-    if (!activeCardId) return null;
+    if (!activeCardId) {
+      console.log('⚠️ No hay tarjeta activa');
+      return null;
+    }
 
     const cards = await getCards();
     const activeCard = cards.find(c => c.id === activeCardId);
     
-    return activeCard || null;
+    if (!activeCard) {
+      console.warn('⚠️ Tarjeta activa no encontrada, limpiando...');
+      await clearActiveCard();
+      return null;
+    }
+    
+    console.log('✅ Tarjeta activa encontrada:', activeCard.id);
+    return activeCard;
   } catch (error) {
     console.error('❌ Error al obtener tarjeta activa:', error);
     return null;
@@ -388,10 +468,12 @@ export async function getActiveCard(): Promise<Card | null> {
 export async function clearActiveCard(): Promise<void> {
   try {
     const userId = await getCurrentUserId();
-    if (!userId) return;
+    if (!userId) {
+      console.warn('⚠️ No hay usuario para limpiar tarjeta activa');
+      return;
+    }
 
     const activeKey = getActiveCardKey(userId);
-    // ✅ Usar removeItem en lugar de setItem con null
     await AsyncStorage.removeItem(activeKey);
     
     console.log('✅ Tarjeta activa eliminada');
@@ -407,7 +489,10 @@ export async function clearActiveCard(): Promise<void> {
 export async function clearAllCards(): Promise<void> {
   try {
     const userId = await getCurrentUserId();
-    if (!userId) return;
+    if (!userId) {
+      console.warn('⚠️ No hay usuario para limpiar tarjetas');
+      return;
+    }
 
     const cardsKey = getCardsKey(userId);
     const activeKey = getActiveCardKey(userId);
@@ -451,6 +536,7 @@ export async function reloadUserData(): Promise<void> {
   try {
     console.log('🔄 Recargando datos del usuario...');
     
+    // Emitir eventos para que los componentes recarguen
     storageEvents.emit("cardsUpdated");
     storageEvents.emit("activeCardChanged");
     storageEvents.emit("cartChanged");
@@ -459,6 +545,38 @@ export async function reloadUserData(): Promise<void> {
     console.log('✅ Datos de usuario recargados');
   } catch (error) {
     console.error('❌ Error al recargar datos de usuario:', error);
+  }
+}
+
+/**
+ * Actualiza una tarjeta existente
+ */
+export async function updateCard(cardId: string, updatedData: Partial<Omit<Card, 'id'>>): Promise<Card[]> {
+  try {
+    if (!cardId || typeof cardId !== 'string') {
+      throw new Error('ID de tarjeta inválido');
+    }
+
+    const cards = await getCards();
+    const cardIndex = cards.findIndex(c => c.id === cardId);
+    
+    if (cardIndex === -1) {
+      throw new Error('Tarjeta no encontrada');
+    }
+
+    const updatedCards = cards.map((card, index) => 
+      index === cardIndex 
+        ? { ...card, ...updatedData }
+        : card
+    );
+
+    await saveCards(updatedCards);
+    console.log('✅ Tarjeta actualizada:', cardId);
+    
+    return updatedCards;
+  } catch (error) {
+    console.error('❌ Error al actualizar tarjeta:', error);
+    throw error;
   }
 }
 
