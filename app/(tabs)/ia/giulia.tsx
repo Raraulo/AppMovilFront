@@ -929,7 +929,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 70 : 60,
+    paddingTop: Platform.OS === "ios" ? 70 : 65,
     paddingBottom: 15,
     backgroundColor: "#fff",
     borderBottomWidth: 1,

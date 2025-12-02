@@ -645,12 +645,12 @@ const styles = StyleSheet.create({
   modalBackdrop: { flex: 1, backgroundColor: '#fff' },
   closeBtn: { position: 'absolute', top: 55, right: 22, zIndex: 10 },
   closeBtnInner: { backgroundColor: '#fff', borderRadius: 24, padding: 11, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, elevation: 8, borderWidth: 1, borderColor: '#f0f0f0' },
-  modalImageFixed: { position: 'absolute', top: 50, left: 0, right: 0, height: height * 0.5, zIndex: 1 },
+  modalImageFixed: { position: 'absolute', top: 5, left: 0, right: 0, height: height * 0.5, zIndex: 1 },
   modalImage: { width: '100%', height: '100%' },
   modalSoldOut: { position: 'absolute', top: '45%', left: 0, right: 0, backgroundColor: '#DC2626', paddingVertical: 14, alignItems: 'center' },
   modalSoldOutText: { color: '#fff', fontSize: 11, letterSpacing: 3, fontFamily: FONT_MODERN, fontWeight: '700' },
   modalFav: { position: 'absolute', bottom: 18, right: 18, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 28, padding: 12, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12 },
-  modalScrollContent: { flex: 1, marginTop: height * 0.5 + 50 },
+  modalScrollContent: { flex: 1, marginTop: height * 0.5 + 20 },
   modalContent: { padding: 28, paddingTop: 24 },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
   modalBrand: { fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8, fontFamily: FONT_MODERN, fontWeight: '700' },
@@ -669,7 +669,7 @@ const styles = StyleSheet.create({
   brandLinkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafafa', borderRadius: 12, padding: 20, borderWidth: 1, borderColor: '#f0f0f0', marginTop: 4 },
   brandLinkText: { fontSize: 14, color: '#1a1a1a', fontFamily: FONT_BODY, fontWeight: '600', letterSpacing: 0.2, flex: 1 },
 
-  modalFooter: { position: 'absolute', bottom: -70, left: 0, right: 0, backgroundColor: '#fff', paddingHorizontal: 24, paddingTop: 22, paddingBottom: 0, borderTopWidth: 1, borderTopColor: '#f0f0f0', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15, zIndex: 2 },
+  modalFooter: { position: 'absolute', bottom: -30, left: 0, right: 0, backgroundColor: '#fff', paddingHorizontal: 24, paddingTop: 22, paddingBottom: 0, borderTopWidth: 1, borderTopColor: '#f0f0f0', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15, zIndex: 2 },
 
   addBtn: { backgroundColor: '#1a1a1a', borderRadius: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 19, gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 14, elevation: 10, marginBottom: Platform.OS === 'ios' ? 64 : 40 },
   addBtnDisabled: { backgroundColor: '#f0f0f0' },

@@ -1427,7 +1427,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center", // Centrado
-    paddingTop: Platform.OS === "ios" ? 60 : 50,
+    paddingTop: Platform.OS === "ios" ? 75 : 70,
     paddingBottom: 15,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
@@ -1439,7 +1439,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   title: {
-    fontSize: 18,
+    fontSize: 22,
     fontFamily: FONT_TITLE,
     color: "#000",
     letterSpacing: 1,
