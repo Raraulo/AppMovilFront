@@ -7,7 +7,7 @@
     "icon": "./assets/images/icon.png",
     "scheme": "appnueva",
     "userInterfaceStyle": "automatic",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "extra": {
       "apiUrl": "https://maisondessenteurs.com/api",
       "router": {},

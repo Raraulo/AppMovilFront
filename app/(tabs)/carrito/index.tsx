@@ -42,18 +42,100 @@ const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
 const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
 const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
 
+// ✅ COLORES SINCRONIZADOS CON MISTARJETAS.TSX
 const CARD_COLORS = [
-  ['#0f172a', '#1e293b'],
-  ['#1e3a8a', '#3b82f6'],
-  ['#581c87', '#9333ea'],
-  ['#831843', '#db2777'],
-  ['#713f12', '#f59e0b'],
-  ['#14532d', '#22c55e'],
-  ['#164e63', '#06b6d4'],
-  ['#7c2d12', '#f97316'],
-  ['#4c1d95', '#a855f7'],
-  ['#881337', '#f43f5e'],
+  ['#0f172a', '#1e293b', '#334155'],
+  ['#1e1b4b', '#312e81', '#4c1d95'],
+  ['#1f2937', '#374151', '#4b5563'],
+  ['#7c2d12', '#9a3412', '#c2410c'],
+  ['#064e3b', '#065f46', '#047857'],
+  ['#4c1d95', '#5b21b6', '#6d28d9'],
 ];
+
+// ==================== ANIMACIÓN "ENVIANDO DINERO" (BILLETE) ====================
+const SendingMoneyOverlay = ({ visible }: { visible: boolean }) => {
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateY = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const rippleAnim = useRef(new Animated.Value(0)).current;
+  const billTranslateY = useRef(new Animated.Value(0)).current; // 💵 Animación billete
+
+  useEffect(() => {
+    if (visible) {
+      // Aparecer
+      Animated.parallel([
+        Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.spring(translateY, { toValue: 0, friction: 6, useNativeDriver: true }),
+        Animated.spring(scaleAnim, { toValue: 1, friction: 6, useNativeDriver: true }),
+      ]).start();
+
+      // Bucle de "onda"
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(rippleAnim, { toValue: 1, duration: 1500, easing: Easing.out(Easing.ease), useNativeDriver: true }),
+          Animated.timing(rippleAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+        ])
+      ).start();
+
+      // 💵 Bucle del billete entrando y saliendo (como en un cajero)
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(billTranslateY, { 
+            toValue: -40, 
+            duration: 800, 
+            easing: Easing.out(Easing.ease), 
+            useNativeDriver: true 
+          }),
+          Animated.timing(billTranslateY, { 
+            toValue: 0, 
+            duration: 800, 
+            easing: Easing.in(Easing.ease),
+            useNativeDriver: true 
+          }),
+        ])
+      ).start();
+
+    } else {
+      // Desaparecer
+      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      translateY.setValue(50);
+      scaleAnim.setValue(0.8);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal transparent visible={visible} animationType="none">
+      <View style={styles.sendingOverlay}>
+        <Animated.View style={[styles.sendingContainer, { opacity: fadeAnim, transform: [{ translateY }, { scale: scaleAnim }] }]}>
+          {/* Círculo con icono */}
+          <View style={styles.sendingIconCircle}>
+            <Animated.View
+              style={[
+                styles.sendingRipple,
+                {
+                  transform: [{ scale: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] }) }],
+                  opacity: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
+                },
+              ]}
+            />
+            {/* 💵 BILLETE ANIMADO */}
+            <View style={{ overflow: 'hidden', width: 80, height: 80, justifyContent: 'center', alignItems: 'center' }}>
+               <Animated.View style={{ transform: [{ translateY: billTranslateY }] }}>
+                  <Ionicons name="cash" size={50} color="#fff" />
+               </Animated.View>
+            </View>
+          </View>
+          
+          <Text style={styles.sendingTitle}>Procesando pago...</Text>
+          <Text style={styles.sendingSubtitle}>Confirmando transacción segura</Text>
+          <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" style={{ marginTop: 20 }} />
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+};
 
 // ==================== MODAL DE CONFIRMACIÓN ====================
 interface ConfirmModalProps {
@@ -315,6 +397,7 @@ export default function CarritoScreen() {
   const [isLogged, setIsLogged] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
+  const [sendingMoney, setSendingMoney] = useState(false); // ✨ Animación envío
   const [tarjetaWawallet, setTarjetaWawallet] = useState<Card | null>(null);
   const [loadingTarjeta, setLoadingTarjeta] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
@@ -396,7 +479,6 @@ export default function CarritoScreen() {
 
     storageEvents.on('cardsChanged', handleCardsChanged);
     storageEvents.on('activeCardChanged', handleActiveCardChanged);
-
     return () => {
       storageEvents.off('cardsChanged', handleCardsChanged);
       storageEvents.off('activeCardChanged', handleActiveCardChanged);
@@ -549,7 +631,6 @@ export default function CarritoScreen() {
 
   const startSuccessAnimation = () => {
     setShowSuccessAnimation(true);
-
     successOpacity.setValue(0);
     successScale.setValue(0.5);
     checkScale.setValue(0);
@@ -641,7 +722,7 @@ export default function CarritoScreen() {
     }, 3500);
   };
 
-  // ✅ FUNCIÓN DE PAGO COMPLETA - USANDO ENDPOINTS EXISTENTES
+  // ✅ FUNCIÓN DE PAGO COMPLETA
   const procesarPagoWawallet = async () => {
     if (processing) return;
     
@@ -655,6 +736,7 @@ export default function CarritoScreen() {
 
     try {
       setProcessing(true);
+      setSendingMoney(true); // ✨ INICIAR ANIMACIÓN DE ENVÍO (BILLETE)
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
 
       const userStr = await AsyncStorage.getItem("user");
@@ -857,9 +939,14 @@ export default function CarritoScreen() {
         });
       }
 
+      // ✨ ESPERAR UN POCO PARA QUE SE VEA LA ANIMACIÓN
+      await new Promise(resolve => setTimeout(resolve, 2500));
+
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       await clearCart();
+      
+      setSendingMoney(false); // Terminar animación envío
       setModalVisible(false);
       await loadCart();
       setTarjetaWawallet(null);
@@ -870,6 +957,7 @@ export default function CarritoScreen() {
 
     } catch (error: any) {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      setSendingMoney(false); // Cancelar animación envío si falla
 
       if (error.message === "SALDO_INSUFICIENTE") {
         showToast("Saldo insuficiente. Revisa tu cuenta y vuelve a intentarlo más tarde", "error");
@@ -905,7 +993,7 @@ export default function CarritoScreen() {
     setConfirmModal({
       visible: true,
       title: "Confirmar compra",
-      message: `IMPORTANTE: No existe reembolso una vez confirmada la compra.\n\nVas a pagar ${total.toFixed(
+      message: `IMPORTANTE: No existe reembolso una vez confirmada la compra.\n\nVas a pagar $${total.toFixed(
         2
       )} (${cart.length} ${cart.length === 1 ? 'producto' : 'productos'}).\n\n¿Deseas continuar?`,
       onConfirm: procesarPagoWawallet,
@@ -969,6 +1057,7 @@ export default function CarritoScreen() {
   });
 
   const getCardGradient = (colorIndex: number) => {
+    if (colorIndex === undefined || colorIndex === null) return CARD_COLORS[0];
     return CARD_COLORS[colorIndex % CARD_COLORS.length];
   };
 
@@ -981,6 +1070,7 @@ export default function CarritoScreen() {
     return (
       <View style={styles.cardContainer}>
         <View style={styles.card}>
+          {/* 🖼️ IMAGEN FULL HEIGHT */}
           <View style={styles.imageContainer}>
             <Image
               source={{
@@ -991,34 +1081,36 @@ export default function CarritoScreen() {
               style={styles.image}
               resizeMode="cover"
             />
-            <LinearGradient
-              colors={["transparent", "rgba(0,0,0,0.1)"]}
-              style={styles.imageGradient}
-            />
             {stock === 0 && (
               <View style={styles.outOfStockBadge}>
                 <Text style={styles.outOfStockText}>AGOTADO</Text>
               </View>
             )}
           </View>
-
+          
           <View style={styles.infoBox}>
-            <Text style={styles.cardBrand} numberOfLines={1}>
-              {item.marca_nombre || "Maison Parfum"}
-            </Text>
-            <Text style={styles.cardName} numberOfLines={2}>
-              {item.nombre}
-            </Text>
-            <Text style={styles.totalItemText}>€{totalItemPrice}</Text>
-            <Text
-              style={[
-                styles.stockText,
-                stock === 0 && styles.stockTextDanger,
-                stock > 0 && stock <= 5 && styles.stockTextWarning,
-              ]}
-            >
-              {stock === 0 ? "Sin stock" : `${stock} disponibles`}
-            </Text>
+            <View>
+              <Text style={styles.cardBrand} numberOfLines={1}>
+                {item.marca_nombre || "Maison Parfum"}
+              </Text>
+              <Text style={styles.cardName} numberOfLines={2}>
+                {item.nombre}
+              </Text>
+            </View>
+            
+            <View style={{ gap: 4 }}>
+              <Text style={styles.totalItemText}>${totalItemPrice}</Text>
+              <Text
+                style={[
+                  styles.stockText,
+                  stock === 0 && styles.stockTextDanger,
+                  stock > 0 && stock <= 5 && styles.stockTextWarning,
+                ]}
+              >
+                {stock === 0 ? "Sin stock" : `${stock} disponibles`}
+              </Text>
+            </View>
+
             <View style={styles.quantityContainer}>
               <TouchableOpacity
                 style={styles.quantityButton}
@@ -1042,14 +1134,13 @@ export default function CarritoScreen() {
             </View>
           </View>
 
+          {/* 🗑️ ICONO DE BASURA CENTRADO VERTICALMENTE */}
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => confirmarEliminar(item.id)}
-            activeOpacity={0.7}
+            activeOpacity={0.6}
           >
-            <View style={styles.deleteButtonContainer}>
-              <Ionicons name="trash-outline" size={20} color="#EF4444" />
-            </View>
+            <Ionicons name="trash-outline" size={20} color="#aaa" />
           </TouchableOpacity>
         </View>
       </View>
@@ -1059,18 +1150,9 @@ export default function CarritoScreen() {
   return (
     <>
       <View style={{ flex: 1, backgroundColor: "#fff" }}>
+        {/* ✅ HEADER MODIFICADO: SIN BOTÓN BACK Y TÍTULO CENTRADO */}
         <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <View style={styles.backButtonContainer}>
-              <Ionicons name="arrow-back" size={24} color="#000" />
-            </View>
-          </TouchableOpacity>
           <Text style={styles.title}>CESTA</Text>
-          <View style={{ width: 44 }} />
         </View>
 
         {!isLogged ? (
@@ -1128,7 +1210,7 @@ export default function CarritoScreen() {
             <View style={styles.summaryContainer}>
               <View style={styles.totalRow}>
                 <Text style={styles.totalLabelFinal}>Total</Text>
-                <Text style={styles.totalPriceFinal}>€{calcularTotal()}</Text>
+                <Text style={styles.totalPriceFinal}>${calcularTotal()}</Text>
               </View>
             </View>
             <TouchableOpacity
@@ -1173,22 +1255,32 @@ export default function CarritoScreen() {
                     </View>
                   ) : tarjetaWawallet ? (
                     <>
-                      <View style={styles.wawalletCard}>
-                        <LinearGradient
-                          colors={getCardGradient(tarjetaWawallet.colorIndex || 0)}
-                          style={styles.cardGradientBg}
-                        />
-                        <View style={styles.wawalletCardHeader}>
-                          <Ionicons name="card" size={32} color="#fff" />
-                          <Text style={styles.wawalletCardTitle}>WaWallet</Text>
+                      {/* ✅ CORREGIDO: LinearGradient ahora es el contenedor padre */}
+                      <LinearGradient
+                        colors={getCardGradient(tarjetaWawallet.colorIndex || 0)}
+                        style={styles.wawalletCard}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                      >
+                        <View style={{ flex: 1, justifyContent: 'space-between', zIndex: 10 }}>
+                          <View style={styles.wawalletCardHeader}>
+                            <Ionicons name="card" size={32} color="#fff" />
+                            <Text style={styles.wawalletCardTitle}>WaWallet</Text>
+                          </View>
+                          
+                          <Text style={styles.wawalletCardNumber}>
+                            •••• •••• •••• {tarjetaWawallet.numero.slice(-4)}
+                          </Text>
+                          
+                          <View>
+                            <Text style={styles.wawalletCardLabel}>TITULAR</Text>
+                            <Text style={styles.wawalletCardOwner}>
+                              {tarjetaWawallet.titular}
+                            </Text>
+                          </View>
                         </View>
-                        <Text style={styles.wawalletCardNumber}>
-                          •••• •••• •••• {tarjetaWawallet.numero.slice(-4)}
-                        </Text>
-                        <Text style={styles.wawalletCardOwner}>
-                          {tarjetaWawallet.titular}
-                        </Text>
-                      </View>
+                      </LinearGradient>
+
                       <View style={styles.warningBox}>
                         <Ionicons
                           name="information-circle"
@@ -1262,6 +1354,9 @@ export default function CarritoScreen() {
         showCancel={confirmModal.showCancel}
       />
 
+      {/* ✨ NUEVA ANIMACIÓN DE "ENVIANDO DINERO" */}
+      <SendingMoneyOverlay visible={sendingMoney} />
+
       {showSuccessAnimation && (
         <Modal transparent visible={showSuccessAnimation} animationType="none">
           <Animated.View
@@ -1326,102 +1421,755 @@ export default function CarritoScreen() {
   );
 }
 
-// ✨ ESTILOS
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#fff" },
-  loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fff" },
-  loadingText: { fontFamily: FONT_BODY, fontSize: 13, color: "#666", marginTop: 12 },
-  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 50, paddingHorizontal: 20, marginBottom: 20 },
-  backButton: { width: 44 },
-  backButtonContainer: { backgroundColor: "#f5f5f5", borderRadius: 24, padding: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3 },
-  title: { fontFamily: FONT_TITLE, fontSize: 20, color: "#111", letterSpacing: 2, fontWeight: '700' },
-  emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 40 },
-  emptyIconContainer: { marginBottom: 30 },
-  emptyTitle: { fontFamily: FONT_TITLE, fontSize: 28, color: "#111", marginBottom: 15, textAlign: "center", letterSpacing: 1, fontWeight: '700' },
-  emptySubtitle: { fontFamily: FONT_BODY, fontSize: 15, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 40 },
-  loginButton: { backgroundColor: "#000", paddingHorizontal: 30, paddingVertical: 18, borderRadius: 30, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
-  loginButtonText: { fontFamily: FONT_MODERN, fontSize: 14, color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontWeight: '600' },
-  exploreButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#000", paddingHorizontal: 30, paddingVertical: 16, borderRadius: 30, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
-  exploreButtonText: { fontFamily: FONT_MODERN, fontSize: 14, color: "#fff", letterSpacing: 1, textTransform: "uppercase", fontWeight: '600' },
-  listContainer: { paddingBottom: 200, paddingHorizontal: 20, paddingTop: 10 },
-  cardContainer: { width: "100%", marginBottom: 16 },
-  card: { flexDirection: "row", backgroundColor: "#fff", borderRadius: 12, padding: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 4 },
-  imageContainer: { position: "relative", width: 90, height: 120, borderRadius: 8, overflow: "hidden" },
-  image: { width: "100%", height: "100%" },
-  imageGradient: { position: "absolute", width: "100%", height: "100%" },
-  outOfStockBadge: { position: "absolute", top: "40%", left: 0, right: 0, backgroundColor: "rgba(239, 68, 68, 0.96)", paddingVertical: 6, alignItems: "center" },
-  outOfStockText: { color: "#fff", fontFamily: FONT_MODERN, fontSize: 10, letterSpacing: 1.5, fontWeight: '700' },
-  infoBox: { flex: 1, paddingLeft: 14, justifyContent: "space-between" },
-  cardBrand: { fontFamily: FONT_BODY, fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 },
-  cardName: { fontFamily: FONT_MODERN, fontSize: 15, color: "#111", lineHeight: 20, marginBottom: 8, fontWeight: '600' },
-  totalItemText: { fontFamily: FONT_TITLE, fontSize: 18, color: "#000", marginBottom: 6, fontWeight: '700' },
-  stockText: { fontFamily: FONT_BODY, fontSize: 11, color: "#10B981", marginBottom: 10 },
-  stockTextDanger: { color: "#EF4444" },
-  stockTextWarning: { color: "#F59E0B" },
-  quantityContainer: { flexDirection: "row", alignItems: "center", borderRadius: 8, borderWidth: 1.5, borderColor: "#e8e8e8", alignSelf: "flex-start", backgroundColor: "#fafafa" },
-  quantityButton: { paddingHorizontal: 12, paddingVertical: 8 },
-  quantityButtonDisabled: { opacity: 0.4 },
-  quantity: { marginHorizontal: 12, fontFamily: FONT_TITLE, fontSize: 16, color: "#111", minWidth: 20, textAlign: "center", fontWeight: '700' },
-  deleteButton: { justifyContent: "center", alignItems: "center", paddingLeft: 12 },
-  deleteButtonContainer: { backgroundColor: "#fee", borderRadius: 8, padding: 8 },
-  footerFixed: { position: "absolute", bottom: Platform.OS === 'ios' ? 80 : 60, left: 0, right: 0, backgroundColor: "#fff", borderTopWidth: 1, borderColor: "#f0f0f0", paddingTop: 20, paddingHorizontal: 20, paddingBottom: Platform.OS === 'ios' ? 25 : 20, shadowColor: "#000", shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 10 },
-  summaryContainer: { marginBottom: 16 },
-  totalRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  totalLabelFinal: { fontFamily: FONT_TITLE, fontSize: 20, color: "#000", fontWeight: '700' },
-  totalPriceFinal: { fontFamily: FONT_TITLE, fontSize: 24, color: "#000", fontWeight: '700' },
-  checkoutButton: { flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#000", paddingVertical: 16, borderRadius: 30, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
-  checkoutButtonText: { color: "#fff", fontFamily: FONT_MODERN, fontSize: 15, letterSpacing: 1, textTransform: "uppercase", fontWeight: '600' },
-  modalBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.75)", justifyContent: "flex-end" },
-  modalContent: { backgroundColor: "#fff", borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 24, maxHeight: "90%", width: "100%" },
-  modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 24 },
-  modalTitle: { fontFamily: FONT_TITLE, fontSize: 22, color: "#111", letterSpacing: 1, fontWeight: '700' },
-  wawalletCardContainer: { marginBottom: 20 },
-  loadingCard: { padding: 40, alignItems: "center" },
-  wawalletCard: { position: "relative", borderRadius: 16, padding: 24, marginBottom: 20, overflow: "hidden", height: 180 },
-  cardGradientBg: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
-  wawalletCardHeader: { flexDirection: "row", alignItems: "center", marginBottom: 20 },
-  wawalletCardTitle: { color: "#fff", fontSize: 24, fontFamily: FONT_TITLE, marginLeft: 12, letterSpacing: 2, fontWeight: '700' },
-  wawalletCardNumber: { color: "#fff", fontSize: 20, fontFamily: "monospace", fontWeight: "700", letterSpacing: 2, marginBottom: 16 },
-  wawalletCardOwner: { color: "rgba(255,255,255,0.7)", fontSize: 14, fontFamily: FONT_BODY, textTransform: "uppercase", letterSpacing: 1 },
-  warningBox: { flexDirection: "row", alignItems: "center", backgroundColor: "#FEF3C7", padding: 16, borderRadius: 12, marginBottom: 16, borderWidth: 1, borderColor: "#FDE68A" },
-  warningText: { marginLeft: 12, fontFamily: FONT_MODERN, fontSize: 13, color: "#92400E", flex: 1, lineHeight: 20, fontWeight: '600' },
-  changeTarjetaButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12 },
-  changeTarjetaText: { color: "#000", fontSize: 14, fontFamily: FONT_MODERN, textDecorationLine: "underline", marginLeft: 8, fontWeight: '600' },
-  addTarjetaButton: { flexDirection: "row", alignItems: "center", justifyContent: "center", backgroundColor: "#f5f5f5", padding: 20, borderRadius: 16, borderWidth: 2, borderColor: "#e8e8e8", borderStyle: "dashed" },
-  addTarjetaText: { fontFamily: FONT_MODERN, fontSize: 15, marginLeft: 12, color: "#000", fontWeight: '600' },
-  confirmButton: { flexDirection: "row", justifyContent: "center", alignItems: "center", backgroundColor: "#000", paddingVertical: 18, borderRadius: 30, marginTop: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
-  confirmButtonDisabled: { backgroundColor: "#d1d5db", shadowOpacity: 0 },
-  confirmText: { color: "#fff", fontFamily: FONT_TITLE, fontSize: 16, letterSpacing: 1, fontWeight: '700' },
-  successOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.95)", justifyContent: "center", alignItems: "center" },
-  successContainer: { alignItems: "center", justifyContent: "center" },
-  mainCircle: { width: 220, height: 220, borderRadius: 110, backgroundColor: "#10B981", justifyContent: "center", alignItems: "center" },
-  checkmarkContainer: { justifyContent: "center", alignItems: "center" },
-  successTextContainer: { alignItems: "center", paddingHorizontal: 40, marginTop: 50 },
-  successTitle: { fontFamily: FONT_TITLE, fontSize: 34, color: "#fff", letterSpacing: 1.5, marginBottom: 16, textAlign: "center", fontWeight: '700' },
-  successSubtitle: { fontFamily: FONT_BODY, fontSize: 16, color: "#aaa", letterSpacing: 0.5, textAlign: "center", lineHeight: 24 },
-  toastContainer: { position: "absolute", top: 0, left: 20, right: 20, borderRadius: 16, zIndex: 999999, shadowColor: "#000", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 999 },
-  toastContent: { flexDirection: "row", alignItems: "center", paddingHorizontal: 20, paddingVertical: 16 },
-  toastText: { color: "#fff", fontSize: 14, fontFamily: FONT_MODERN, marginLeft: 12, flex: 1, letterSpacing: 0.3, fontWeight: '600' },
-  incompleteNotificationContainer: { position: "absolute", top: 10, left: 15, right: 15, zIndex: 999998, borderRadius: 16, overflow: "hidden", shadowColor: "#EF4444", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.5, shadowRadius: 20, elevation: 998 },
-  incompleteNotificationGradient: { padding: 16 },
-  incompleteNotificationContent: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12 },
-  incompleteNotificationIconContainer: { marginRight: 12, marginTop: 2 },
-  incompleteNotificationTextContainer: { flex: 1 },
-  incompleteNotificationTitle: { fontFamily: FONT_TITLE, fontSize: 16, color: "#fff", marginBottom: 4, letterSpacing: 0.5, fontWeight: '700' },
-  incompleteNotificationMessage: { fontFamily: FONT_BODY, fontSize: 13, color: "#fff", opacity: 0.95, lineHeight: 18 },
-  incompleteNotificationActions: { flexDirection: "row", gap: 10 },
-  incompleteNotificationButtonSecondary: { flex: 1, backgroundColor: "rgba(255,255,255,0.2)", paddingVertical: 10, borderRadius: 8, alignItems: "center" },
-  incompleteNotificationButtonSecondaryText: { fontFamily: FONT_MODERN, fontSize: 13, color: "#fff", fontWeight: '600' },
-  incompleteNotificationButtonPrimary: { flex: 1, backgroundColor: "#fff", paddingVertical: 10, borderRadius: 8, alignItems: "center" },
-  incompleteNotificationButtonPrimaryText: { fontFamily: FONT_MODERN, fontSize: 13, color: "#DC2626", fontWeight: '600' },
-  confirmModalBackdrop: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.75)", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 },
-  confirmModalContainer: { backgroundColor: "#fff", borderRadius: 24, padding: 32, width: "100%", maxWidth: 400, shadowColor: "#000", shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.3, shadowRadius: 24, elevation: 20 },
-  confirmIconCircle: { width: 96, height: 96, borderRadius: 48, backgroundColor: "#f5f5f5", justifyContent: "center", alignItems: "center", alignSelf: "center", marginBottom: 24 },
-  confirmTitle: { fontFamily: FONT_TITLE, fontSize: 24, color: "#111", textAlign: "center", marginBottom: 16, letterSpacing: 0.5, fontWeight: '700' },
-  confirmMessage: { fontFamily: FONT_BODY, fontSize: 15, color: "#666", textAlign: "center", lineHeight: 24, marginBottom: 32 },
-  confirmButtons: { gap: 12 },
-  confirmConfirmButton: { backgroundColor: "#111", paddingVertical: 16, borderRadius: 16, alignItems: "center", shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
-  confirmConfirmText: { fontFamily: FONT_TITLE, fontSize: 16, color: "#fff", letterSpacing: 0.5, fontWeight: '700' },
-  confirmCancelButton: { backgroundColor: "#f5f5f5", paddingVertical: 16, borderRadius: 16, alignItems: "center" },
-  confirmCancelText: { fontFamily: FONT_MODERN, fontSize: 16, color: "#666", letterSpacing: 0.5, fontWeight: '600' },
+  // HEADER MODIFICADO: CENTRADO
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center", // Centrado
+    paddingTop: Platform.OS === "ios" ? 60 : 50,
+    paddingBottom: 15,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f5f5f5",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  title: {
+    fontSize: 18,
+    fontFamily: FONT_TITLE,
+    color: "#000",
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  listContainer: {
+    padding: 20,
+    paddingBottom: 250, // ✅ AUMENTADO PARA QUE EL BOTÓN SUBIDO NO TAPE EL FINAL
+  },
+  cardContainer: {
+    marginBottom: 20,
+    borderRadius: 16,
+    backgroundColor: "#fff",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  card: {
+    flexDirection: "row",
+    borderRadius: 16,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+    height: 130, // ALTURA FIJA
+  },
+  imageContainer: {
+    width: 110,
+    height: "100%", // OCUPA TODO EL ALTO
+    position: "relative",
+  },
+  image: {
+    width: "100%",
+    height: "100%",
+  },
+  imageGradient: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  outOfStockBadge: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(255,255,255,0.8)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  outOfStockText: {
+    color: "#EF4444",
+    fontSize: 10,
+    fontWeight: "700",
+    transform: [{ rotate: "-45deg" }],
+    borderWidth: 1,
+    borderColor: "#EF4444",
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  infoBox: {
+    flex: 1,
+    padding: 14,
+    justifyContent: "space-between",
+  },
+  cardBrand: {
+    fontSize: 10,
+    color: "#666",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    fontFamily: FONT_MODERN,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  cardName: {
+    fontSize: 14,
+    fontFamily: FONT_TITLE,
+    color: "#000",
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  totalItemText: {
+    fontSize: 16,
+    color: "#000",
+    fontFamily: FONT_TITLE,
+    fontWeight: "700",
+  },
+  stockText: {
+    fontSize: 11,
+    color: "#10B981",
+    fontFamily: FONT_MODERN,
+  },
+  stockTextWarning: {
+    color: "#F59E0B",
+  },
+  stockTextDanger: {
+    color: "#EF4444",
+  },
+  quantityContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f9f9f9",
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  quantityButton: {
+    width: 24,
+    height: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    borderRadius: 12,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  quantityButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: "#f5f5f5",
+  },
+  quantity: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#000",
+    marginHorizontal: 12,
+    minWidth: 16,
+    textAlign: "center",
+  },
+  deleteButton: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 44,
+    height: '100%', // Centrado vertical
+    borderLeftWidth: 1,
+    borderLeftColor: '#f5f5f5',
+  },
+  deleteButtonContainer: {
+    // Ya no es necesario el container circular
+  },
+  footerFixed: {
+    position: "absolute",
+    bottom: 60, // ✅ SUBIDO UN POCO MÁS PARA DAR AIRE
+    left: 0,
+    right: 0,
+    backgroundColor: "#fff",
+    padding: 20,
+    paddingBottom: Platform.OS === "ios" ? 34 : 20,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  summaryContainer: {
+    marginBottom: 16,
+  },
+  totalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  totalLabelFinal: {
+    fontSize: 16,
+    color: "#666",
+    fontFamily: FONT_MODERN,
+  },
+  totalPriceFinal: {
+    fontSize: 24,
+    color: "#000",
+    fontFamily: FONT_TITLE,
+    fontWeight: "700",
+  },
+  checkoutButton: {
+    backgroundColor: "#000",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 16,
+    borderRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  checkoutButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: FONT_TITLE,
+    letterSpacing: 1,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 40,
+  },
+  emptyIconContainer: {
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "#f9f9f9",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontFamily: FONT_TITLE,
+    color: "#000",
+    marginBottom: 12,
+    textAlign: "center",
+    fontWeight: '700',
+  },
+  emptySubtitle: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 32,
+    lineHeight: 24,
+    fontFamily: FONT_BODY,
+  },
+  exploreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#000",
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  exploreButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: FONT_TITLE,
+    letterSpacing: 0.5,
+  },
+  loginButton: {
+    backgroundColor: "#000",
+    paddingVertical: 14,
+    paddingHorizontal: 40,
+    borderRadius: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loginButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+    fontFamily: FONT_TITLE,
+    letterSpacing: 0.5,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === "ios" ? 40 : 24,
+    maxHeight: height * 0.85,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: FONT_TITLE,
+    color: "#000",
+    fontWeight: '700',
+  },
+  wawalletCardContainer: {
+    marginBottom: 24,
+  },
+  loadingCard: {
+    height: 180,
+    borderRadius: 16,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#666",
+    fontFamily: FONT_MODERN,
+  },
+  wawalletCard: {
+    height: 180,
+    borderRadius: 16,
+    padding: 24,
+    justifyContent: "space-between",
+    position: "relative",
+    overflow: "hidden", 
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+    backgroundColor: 'transparent', 
+  },
+  cardGradientBg: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  wawalletCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  wawalletCardTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#fff",
+    fontFamily: FONT_TITLE,
+    letterSpacing: 1,
+  },
+  wawalletCardNumber: {
+    fontSize: 20,
+    color: "#fff",
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    letterSpacing: 2,
+    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  wawalletCardLabel: {
+    fontSize: 10,
+    color: "rgba(255,255,255,0.6)",
+    fontFamily: FONT_MODERN,
+    marginBottom: 4,
+    letterSpacing: 1,
+  },
+  wawalletCardOwner: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.95)",
+    fontFamily: FONT_MODERN,
+    textTransform: "uppercase",
+    letterSpacing: 1,
+    fontWeight: '600',
+  },
+  warningBox: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF3C7",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#FDE68A",
+  },
+  warningText: {
+    marginLeft: 12,
+    fontFamily: FONT_MODERN,
+    fontSize: 13,
+    color: "#92400E",
+    flex: 1,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  changeTarjetaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+  },
+  changeTarjetaText: {
+    color: "#000",
+    fontSize: 14,
+    fontFamily: FONT_MODERN,
+    textDecorationLine: "underline",
+    marginLeft: 8,
+    fontWeight: '600',
+  },
+  addTarjetaButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#f5f5f5",
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#e8e8e8",
+    borderStyle: "dashed",
+  },
+  addTarjetaText: {
+    fontFamily: FONT_MODERN,
+    fontSize: 15,
+    marginLeft: 12,
+    color: "#000",
+    fontWeight: '600',
+  },
+  confirmButton: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+    paddingVertical: 18,
+    borderRadius: 30,
+    marginTop: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  confirmButtonDisabled: {
+    backgroundColor: "#d1d5db",
+    shadowOpacity: 0,
+  },
+  confirmText: {
+    color: "#fff",
+    fontFamily: FONT_TITLE,
+    fontSize: 16,
+    letterSpacing: 1,
+    fontWeight: '700',
+  },
+  successOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mainCircle: {
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "#10B981",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  checkmarkContainer: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  successTextContainer: {
+    alignItems: "center",
+    paddingHorizontal: 40,
+    marginTop: 50,
+  },
+  successTitle: {
+    fontFamily: FONT_TITLE,
+    fontSize: 34,
+    color: "#fff",
+    letterSpacing: 1.5,
+    marginBottom: 16,
+    textAlign: "center",
+    fontWeight: '700',
+  },
+  successSubtitle: {
+    fontFamily: FONT_BODY,
+    fontSize: 16,
+    color: "#aaa",
+    letterSpacing: 0.5,
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  toastContainer: {
+    position: "absolute",
+    top: 0,
+    left: 20,
+    right: 20,
+    borderRadius: 16,
+    zIndex: 999999,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 999,
+  },
+  toastContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  toastText: {
+    color: "#fff",
+    fontSize: 14,
+    fontFamily: FONT_MODERN,
+    marginLeft: 12,
+    flex: 1,
+    letterSpacing: 0.3,
+    fontWeight: '600',
+  },
+  incompleteNotificationContainer: {
+    position: "absolute",
+    top: 10,
+    left: 15,
+    right: 15,
+    zIndex: 999998,
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#EF4444",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+    elevation: 998,
+  },
+  incompleteNotificationGradient: {
+    padding: 16,
+  },
+  incompleteNotificationContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  incompleteNotificationIconContainer: {
+    marginRight: 12,
+    marginTop: 2,
+  },
+  incompleteNotificationTextContainer: {
+    flex: 1,
+  },
+  incompleteNotificationTitle: {
+    fontFamily: FONT_TITLE,
+    fontSize: 16,
+    color: "#fff",
+    marginBottom: 4,
+    letterSpacing: 0.5,
+    fontWeight: '700',
+  },
+  incompleteNotificationMessage: {
+    fontFamily: FONT_BODY,
+    fontSize: 13,
+    color: "#fff",
+    opacity: 0.95,
+    lineHeight: 18,
+  },
+  incompleteNotificationActions: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  incompleteNotificationButtonSecondary: {
+    flex: 1,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  incompleteNotificationButtonSecondaryText: {
+    fontFamily: FONT_MODERN,
+    fontSize: 13,
+    color: "#fff",
+    fontWeight: '600',
+  },
+  incompleteNotificationButtonPrimary: {
+    flex: 1,
+    backgroundColor: "#fff",
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  incompleteNotificationButtonPrimaryText: {
+    fontFamily: FONT_MODERN,
+    fontSize: 13,
+    color: "#DC2626",
+    fontWeight: '600',
+  },
+  confirmModalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.75)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  confirmModalContainer: {
+    backgroundColor: "#fff",
+    borderRadius: 24,
+    padding: 32,
+    width: "100%",
+    maxWidth: 400,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 20,
+  },
+  confirmIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
+    marginBottom: 24,
+  },
+  confirmTitle: {
+    fontFamily: FONT_TITLE,
+    fontSize: 24,
+    color: "#111",
+    textAlign: "center",
+    marginBottom: 16,
+    letterSpacing: 0.5,
+    fontWeight: '700',
+  },
+  confirmMessage: {
+    fontFamily: FONT_BODY,
+    fontSize: 15,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  confirmButtons: {
+    gap: 12,
+  },
+  confirmConfirmButton: {
+    backgroundColor: "#111",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  confirmConfirmText: {
+    fontFamily: FONT_TITLE,
+    fontSize: 16,
+    color: "#fff",
+    letterSpacing: 0.5,
+    fontWeight: '700',
+  },
+  confirmCancelButton: {
+    backgroundColor: "#f5f5f5",
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: "center",
+  },
+  confirmCancelText: {
+    fontFamily: FONT_MODERN,
+    fontSize: 16,
+    color: "#666",
+    letterSpacing: 0.5,
+    fontWeight: '600',
+  },
+  // ✨ ESTILOS ANIMACIÓN DE ENVÍO
+  sendingOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(10,10,10,0.95)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  sendingContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: 300,
+  },
+  sendingIconCircle: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#2563EB",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+    position: "relative",
+    overflow: 'hidden', // Para que el billete no se salga
+  },
+  sendingRipple: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#2563EB",
+    zIndex: -1,
+  },
+  sendingTitle: {
+    color: "#fff",
+    fontSize: 20,
+    fontFamily: FONT_TITLE,
+    fontWeight: "700",
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  sendingSubtitle: {
+    color: "rgba(255,255,255,0.6)",
+    fontSize: 14,
+    fontFamily: FONT_BODY,
+    letterSpacing: 0.5,
+  },
 });

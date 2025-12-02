@@ -16,6 +16,7 @@ import {
   Animated,
   Dimensions,
   Easing,
+  FlatList,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -31,7 +32,9 @@ import {
 } from "react-native";
 import { useApi } from "../../../contexts/ApiContext";
 
+
 const { width, height } = Dimensions.get("window");
+
 
 interface Message {
   id: string;
@@ -41,12 +44,93 @@ interface Message {
   productos?: any[];
 }
 
+
 interface Conversation {
   id: string;
   nombre: string;
   fecha: Date;
   mensajes: Message[];
 }
+
+
+// Datos para el carrusel
+const FEATURES = [
+  {
+    id: '1',
+    icon: "search",
+    text: "Recomendaciones personalizadas para tu estilo único"
+  },
+  {
+    id: '2',
+    icon: "chatbubbles",
+    text: "Conversación natural, fluida e intuitiva"
+  },
+  {
+    id: '3',
+    icon: "star",
+    text: "Acceso exclusivo a nuestra colección de lujo"
+  }
+];
+
+
+// ✅ COMPONENTE DE ANIMACIÓN "ESCRIBIENDO..."
+const TypingIndicator = () => {
+  const dot1 = useRef(new Animated.Value(0)).current;
+  const dot2 = useRef(new Animated.Value(0)).current;
+  const dot3 = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animate = (dot: Animated.Value, delay: number) => {
+      return Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, {
+            toValue: -8,
+            duration: 400,
+            easing: Easing.ease,
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot, {
+            toValue: 0,
+            duration: 400,
+            easing: Easing.ease,
+            useNativeDriver: true,
+          }),
+        ])
+      );
+    };
+
+    const animation1 = animate(dot1, 0);
+    const animation2 = animate(dot2, 150);
+    const animation3 = animate(dot3, 300);
+
+    animation1.start();
+    animation2.start();
+    animation3.start();
+
+    return () => {
+      animation1.stop();
+      animation2.stop();
+      animation3.stop();
+    };
+  }, []);
+
+  return (
+    <View style={styles.typingContainer}>
+      <View style={styles.aiAvatar}>
+        <Ionicons name="sparkles" size={18} color="#fff" />
+      </View>
+      <View style={styles.typingBubble}>
+        <View style={styles.dotsContainer}>
+          <Animated.View style={[styles.dot, { transform: [{ translateY: dot1 }] }]} />
+          <Animated.View style={[styles.dot, { transform: [{ translateY: dot2 }] }]} />
+          <Animated.View style={[styles.dot, { transform: [{ translateY: dot3 }] }]} />
+        </View>
+      </View>
+    </View>
+  );
+};
+
 
 const ProductCard = ({ producto }: { producto: any }) => (
   <View style={styles.productCard}>
@@ -70,6 +154,7 @@ const ProductCard = ({ producto }: { producto: any }) => (
   </View>
 );
 
+
 export default function GiuliaScreen() {
   const router = useRouter();
   const apiUrl = useApi();
@@ -78,11 +163,22 @@ export default function GiuliaScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateAnim = useRef(new Animated.Value(40)).current;
 
+
+  // Estado para el carrusel
+  const [activeSlide, setActiveSlide] = useState(0);
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    if (viewableItems.length > 0) {
+      setActiveSlide(viewableItems[0].index || 0);
+    }
+  }).current;
+
+
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_400Regular,
     PlayfairDisplay_600SemiBold,
     PlayfairDisplay_700Bold,
   });
+
 
   const [isLogged, setIsLogged] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -95,11 +191,13 @@ export default function GiuliaScreen() {
   const [conversacionActual, setConversacionActual] = useState<string | null>(null);
   const [modalHistorial, setModalHistorial] = useState(false);
 
+
   useEffect(() => {
     checkAuth();
     cargarProductos();
     cargarConversaciones();
   }, [apiUrl]);
+
 
   useEffect(() => {
     if (isLogged) {
@@ -119,6 +217,7 @@ export default function GiuliaScreen() {
         }
       );
 
+
       const keyboardDidHideListener = Keyboard.addListener(
         'keyboardDidHide',
         () => {
@@ -126,12 +225,14 @@ export default function GiuliaScreen() {
         }
       );
 
+
       return () => {
         keyboardDidShowListener.remove();
         keyboardDidHideListener.remove();
       };
     }
   }, [isLogged, conversacionActual]);
+
 
   useEffect(() => {
     if (!checkingAuth) {
@@ -152,6 +253,7 @@ export default function GiuliaScreen() {
     }
   }, [checkingAuth]);
 
+
   const checkAuth = async () => {
     try {
       const storedUser = await AsyncStorage.getItem("user");
@@ -170,6 +272,7 @@ export default function GiuliaScreen() {
     }
   };
 
+
   const cargarProductos = async () => {
     try {
       if (!apiUrl) return;
@@ -181,6 +284,7 @@ export default function GiuliaScreen() {
       console.error("❌ Error cargando productos:", error);
     }
   };
+
 
   const cargarConversaciones = async () => {
     try {
@@ -198,13 +302,20 @@ export default function GiuliaScreen() {
     }
   };
 
+
+  // ✅ MODIFICADO: No guarda conversaciones vacías
   const guardarConversaciones = async (convs: Conversation[]) => {
     try {
-      await AsyncStorage.setItem("giulia_conversaciones", JSON.stringify(convs));
+      // Filtrar conversaciones que tengan al menos un mensaje del usuario
+      const convsConMensajes = convs.filter(conv => 
+        conv.mensajes.some(m => m.isUser)
+      );
+      await AsyncStorage.setItem("giulia_conversaciones", JSON.stringify(convsConMensajes));
     } catch (error) {
       console.error("Error guardando conversaciones:", error);
     }
   };
+
 
   const crearNuevaConversacion = () => {
     const welcomeMessage: Message = {
@@ -214,6 +325,7 @@ export default function GiuliaScreen() {
       timestamp: new Date(),
     };
 
+
     const nuevaConv: Conversation = {
       id: Date.now().toString(),
       nombre: "Nueva conversación",
@@ -221,12 +333,14 @@ export default function GiuliaScreen() {
       mensajes: [welcomeMessage]
     };
 
+
     const nuevasConvs = [nuevaConv, ...conversaciones];
     setConversaciones(nuevasConvs);
     setConversacionActual(nuevaConv.id);
     setMessages([welcomeMessage]);
     guardarConversaciones(nuevasConvs);
   };
+
 
   const cargarMensajesConversacion = (convId: string) => {
     const conv = conversaciones.find(c => c.id === convId);
@@ -236,8 +350,10 @@ export default function GiuliaScreen() {
     }
   };
 
+
   const actualizarConversacionActual = (nuevosMensajes: Message[]) => {
     if (!conversacionActual) return;
+
 
     const nuevasConvs = conversaciones.map(c => {
       if (c.id === conversacionActual) {
@@ -254,9 +370,11 @@ export default function GiuliaScreen() {
       return c;
     });
 
+
     setConversaciones(nuevasConvs);
     guardarConversaciones(nuevasConvs);
   };
+
 
   const extraerProductosRecomendados = (respuesta: string, productosDisponibles: any[]): any[] => {
     const productosEncontrados: any[] = [];
@@ -270,57 +388,64 @@ export default function GiuliaScreen() {
     return productosEncontrados.slice(0, 3);
   };
 
-// app/(tabs)/ia/giulia.tsx
-// ... (mantén todo el código anterior hasta la función enviarMensaje)
 
-const enviarMensaje = async () => {
-  if (!inputText.trim() || isLoading) return;
+  const enviarMensaje = async () => {
+    if (!inputText.trim() || isLoading) return;
 
-  const userMessage: Message = {
-    id: Date.now().toString(),
-    text: inputText.trim(),
-    isUser: true,
-    timestamp: new Date(),
-  };
 
-  const updatedMessages = [...messages, userMessage];
-  setMessages(updatedMessages);
-  const consultaUsuario = inputText.trim();
-  setInputText("");
-  setIsLoading(true);
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputText.trim(),
+      isUser: true,
+      timestamp: new Date(),
+    };
 
-  setTimeout(() => {
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  }, 100);
 
-  try {
-    const consultaLower = consultaUsuario.toLowerCase();
-    const esMasculino = /hombre|masculino|caballero|él|para él/i.test(consultaLower);
-    const esFemenino = /mujer|femenino|dama|ella|para ella/i.test(consultaLower);
-    
-    let productosRelevantes = productos.filter(p => p.stock > 0);
-    
-    if (esMasculino) {
-      productosRelevantes = productosRelevantes.filter(p => 
-        p.genero === "Masculino" || p.genero === "Unisex"
-      );
-    } else if (esFemenino) {
-      productosRelevantes = productosRelevantes.filter(p => 
-        p.genero === "Femenino" || p.genero === "Unisex"
-      );
-    }
-    
-    productosRelevantes = productosRelevantes.slice(0, 20);
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
+    const consultaUsuario = inputText.trim();
+    setInputText("");
+    setIsLoading(true);
 
-    const inventarioTexto = productosRelevantes
-      .map((p) => `${p.nombre} de ${p.marca_nombre}: $${p.precio}. ${p.descripcion || ''}`)
-      .join("\n");
 
-    const prompt = `Eres Giulia, experta en fragancias de Maison Des Senteurs. Recomienda perfumes SOLO del siguiente inventario:
+    setTimeout(() => {
+      scrollViewRef.current?.scrollToEnd({ animated: true });
+    }, 100);
+
+
+    try {
+      const consultaLower = consultaUsuario.toLowerCase();
+      const esMasculino = /hombre|masculino|caballero|él|para él/i.test(consultaLower);
+      const esFemenino = /mujer|femenino|dama|ella|para ella/i.test(consultaLower);
+      
+      let productosRelevantes = productos.filter(p => p.stock > 0);
+      
+      if (esMasculino) {
+        productosRelevantes = productosRelevantes.filter(p => 
+          p.genero === "Masculino" || p.genero === "Unisex"
+        );
+      } else if (esFemenino) {
+        productosRelevantes = productosRelevantes.filter(p => 
+          p.genero === "Femenino" || p.genero === "Unisex"
+        );
+      }
+      
+      productosRelevantes = productosRelevantes.slice(0, 20);
+
+
+      const inventarioTexto = productosRelevantes
+        .map((p) => `${p.nombre} de ${p.marca_nombre}: $${p.precio}. ${p.descripcion || ''}`)
+        .join("\n");
+
+
+      const prompt = `Eres Giulia, experta en fragancias de Maison Des Senteurs. Recomienda perfumes SOLO del siguiente inventario:
+
 
 ${inventarioTexto}
 
+
 Consulta del cliente: ${consultaUsuario}
+
 
 IMPORTANTE: 
 - NO uses asteriscos, negritas ni formato markdown
@@ -330,86 +455,107 @@ IMPORTANTE:
 - Explica brevemente por qué es adecuado
 - Usa emojis sutiles solo para dar elegancia (✨🌸💎)`;
 
-    console.log("📤 Enviando a Perplexity...");
 
-    const response = await fetch("https://api.perplexity.ai/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer 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", // ✅ TU API KEY
-      },
-      body: JSON.stringify({
-        model: "sonar",
-        messages: [
-          {
-            role: "system",
-            content: "Eres Giulia, asesora de fragancias de lujo. Respondes en texto plano sin asteriscos ni formato markdown. Escribe de forma elegante y profesional.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
-      }),
-    });
+      console.log("📤 Enviando a Perplexity...");
 
-    console.log("📥 Status:", response.status);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("❌ Error API:", errorText);
-      throw new Error(`Error ${response.status}: No se pudo conectar con el servicio de IA`);
+      const response = await fetch("https://api.perplexity.ai/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer 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",
+        },
+        body: JSON.stringify({
+          model: "sonar",
+          messages: [
+            {
+              role: "system",
+              content: "Eres Giulia, asesora de fragancias de lujo. Respondes en texto plano sin asteriscos ni formato markdown. Escribe de forma elegante y profesional.",
+            },
+            {
+              role: "user",
+              content: prompt,
+            },
+          ],
+          max_tokens: 500,
+          temperature: 0.7,
+        }),
+      });
+
+
+      console.log("📥 Status:", response.status);
+
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("❌ Error API:", errorText);
+        throw new Error(`Error ${response.status}: No se pudo conectar con el servicio de IA`);
+      }
+
+
+      const data = await response.json();
+      let aiResponse = data.choices[0]?.message?.content || "Disculpe, no pude procesar su solicitud.";
+      
+      aiResponse = aiResponse
+        .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
+        .replace(/#{1,6}\s/g, '')
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+
+
+      const productosRecomendados = extraerProductosRecomendados(aiResponse, productosRelevantes);
+
+
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: aiResponse,
+        isUser: false,
+        timestamp: new Date(),
+        productos: productosRecomendados,
+      };
+
+
+      const finalMessages = [...updatedMessages, aiMessage];
+      setMessages(finalMessages);
+      actualizarConversacionActual(finalMessages);
+
+
+      console.log("✅ Respuesta exitosa");
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 200);
+    } catch (error: any) {
+      console.error("❌ Error:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "Disculpe, hubo un problema técnico. Por favor verifique su conexión o intente más tarde.",
+        isUser: false,
+        timestamp: new Date(),
+      };
+      const finalMessages = [...updatedMessages, errorMessage];
+      setMessages(finalMessages);
+      actualizarConversacionActual(finalMessages);
+    } finally {
+      setIsLoading(false);
     }
-
-    const data = await response.json();
-    let aiResponse = data.choices[0]?.message?.content || "Disculpe, no pude procesar su solicitud.";
-    
-    aiResponse = aiResponse
-      .replace(/\*\*/g, '')
-      .replace(/\*/g, '')
-      .replace(/#{1,6}\s/g, '')
-      .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
-
-    const productosRecomendados = extraerProductosRecomendados(aiResponse, productosRelevantes);
-
-    const aiMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      text: aiResponse,
-      isUser: false,
-      timestamp: new Date(),
-      productos: productosRecomendados,
-    };
-
-    const finalMessages = [...updatedMessages, aiMessage];
-    setMessages(finalMessages);
-    actualizarConversacionActual(finalMessages);
-
-    console.log("✅ Respuesta exitosa");
-    setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
-    }, 200);
-  } catch (error: any) {
-    console.error("❌ Error:", error);
-    const errorMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      text: "Disculpe, hubo un problema técnico. Por favor verifique su conexión o intente más tarde.",
-      isUser: false,
-      timestamp: new Date(),
-    };
-    const finalMessages = [...updatedMessages, errorMessage];
-    setMessages(finalMessages);
-    actualizarConversacionActual(finalMessages);
-  } finally {
-    setIsLoading(false);
-  }
-};
+  };
 
 
   const detenerIA = () => {
     setIsLoading(false);
   };
+
+
+  // Renderizado de cada item del carrusel
+  const renderCarouselItem = ({ item }: { item: any }) => (
+    <View style={styles.carouselItem}>
+      <View style={styles.carouselIconContainer}>
+        <Ionicons name={item.icon as any} size={40} color="#fff" />
+      </View>
+      <Text style={styles.carouselText}>{item.text}</Text>
+    </View>
+  );
+
 
   if (!fontsLoaded || checkingAuth) {
     return (
@@ -418,6 +564,7 @@ IMPORTANTE:
       </View>
     );
   }
+
 
   if (!isLogged) {
     return (
@@ -436,9 +583,10 @@ IMPORTANTE:
         />
         
         <LinearGradient
-          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.7)']}
+          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.8)']}
           style={styles.videoOverlay}
         />
+
 
         <View style={styles.notLoggedContent}>
           <View style={styles.aiIconContainer}>
@@ -447,60 +595,51 @@ IMPORTANTE:
           
           <Text style={styles.notLoggedTitle}>Conoce a Giulia AI</Text>
           <Text style={styles.notLoggedSubtitle}>
-            Tu asistente personal de fragancias impulsada por inteligencia artificial
+            Tu asistente personal de fragancias
           </Text>
           
-          <View style={styles.featuresContainer}>
-            <View style={styles.featureItem}>
-              <Ionicons name="search" size={24} color="#fff" />
-              <Text style={styles.featureText}>Recomendaciones personalizadas</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="chatbubbles" size={24} color="#fff" />
-              <Text style={styles.featureText}>Conversación natural e intuitiva</Text>
-            </View>
-            <View style={styles.featureItem}>
-              <Ionicons name="star" size={24} color="#fff" />
-              <Text style={styles.featureText}>Acceso exclusivo a nuestra colección</Text>
+          <View style={styles.carouselContainer}>
+            <FlatList
+              data={FEATURES}
+              renderItem={renderCarouselItem}
+              keyExtractor={(item) => item.id}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
+              scrollEventThrottle={16}
+            />
+
+
+            <View style={styles.paginationContainer}>
+              {FEATURES.map((_, index) => (
+                <View
+                  key={index}
+                  style={[
+                    styles.paginationDot,
+                    activeSlide === index ? styles.paginationDotActive : styles.paginationDotInactive,
+                  ]}
+                />
+              ))}
             </View>
           </View>
 
+
           <Text style={styles.loginPrompt}>
-            Inicia sesión para experimentar el futuro de la perfumería de lujo
+            Por favor inicia sesión para acceder a la experiencia completa
           </Text>
-
-          <TouchableOpacity 
-            style={styles.loginButton} 
-            onPress={() => router.replace("/(auth)/login")}
-            activeOpacity={0.85}
-          >
-            <LinearGradient
-              colors={['#fff', '#f5f5f5']}
-              style={styles.loginButtonGradient}
-            >
-              <Ionicons name="log-in-outline" size={22} color="#000" style={{ marginRight: 10 }} />
-              <Text style={styles.loginButtonText}>INICIAR SESIÓN</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.registerButton} 
-            onPress={() => router.push("/(auth)/register")}
-            activeOpacity={0.85}
-          >
-            <Ionicons name="person-add-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
-            <Text style={styles.registerButtonText}>CREAR CUENTA</Text>
-          </TouchableOpacity>
         </View>
       </Animated.View>
     );
   }
 
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-      {/* ✅ HEADER CON BOTÓN HISTORIAL */}
+
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Giulia</Text>
@@ -510,6 +649,7 @@ IMPORTANTE:
           <Ionicons name="time-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
+
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -575,7 +715,11 @@ IMPORTANTE:
               </View>
             </View>
           ))}
+          
+          {/* ✅ INDICADOR DE "ESCRIBIENDO..." */}
+          {isLoading && <TypingIndicator />}
         </ScrollView>
+
 
         <View style={[styles.inputContainer, Platform.OS === 'android' && keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
           <View style={styles.inputWrapper}>
@@ -621,7 +765,7 @@ IMPORTANTE:
         </View>
       </KeyboardAvoidingView>
 
-      {/* ✅ MODAL HISTORIAL SIN BOTÓN ELIMINAR */}
+
       <Modal visible={modalHistorial} animationType="slide" transparent onRequestClose={() => setModalHistorial(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -666,6 +810,7 @@ IMPORTANTE:
   );
 }
 
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -699,19 +844,18 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 30,
-    paddingBottom: 20,
-    paddingTop: 40,
+    paddingBottom: 40,
+    paddingTop: 80,
   },
   aiIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 30,
-    borderWidth: 2,
+    marginBottom: 20,
+    borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.3)',
   },
   notLoggedTitle: {
@@ -719,83 +863,66 @@ const styles = StyleSheet.create({
     fontFamily: "PlayfairDisplay_700Bold",
     color: "#fff",
     textAlign: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
     letterSpacing: 0.5,
   },
   notLoggedSubtitle: {
     fontSize: 16,
     fontFamily: "PlayfairDisplay_400Regular",
-    color: "#fff",
+    color: "rgba(255,255,255,0.8)",
     textAlign: 'center',
     marginBottom: 40,
-    lineHeight: 24,
-    opacity: 0.9,
+    letterSpacing: 0.5,
   },
-  featuresContainer: {
+  carouselContainer: {
+    height: 160, 
     width: '100%',
-    marginBottom: 40,
-  },
-  featureItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 20,
-    paddingLeft: 20,
   },
-  featureText: {
-    fontSize: 15,
+  carouselItem: {
+    width: width,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+  },
+  carouselIconContainer: {
+    marginBottom: 15,
+  },
+  carouselText: {
+    fontSize: 18,
     fontFamily: "PlayfairDisplay_400Regular",
     color: "#fff",
-    marginLeft: 15,
-    flex: 1,
+    textAlign: "center",
+    lineHeight: 26,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#fff',
+    width: 10,
+    height: 10,
+  },
+  paginationDotInactive: {
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   loginPrompt: {
-    fontSize: 14,
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    color: "#fff",
+    fontSize: 12,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "rgba(255,255,255,0.6)",
     textAlign: 'center',
-    marginBottom: 30,
-    opacity: 0.95,
-    lineHeight: 22,
-  },
-  loginButton: {
-    width: '100%',
-    borderRadius: 30,
-    overflow: 'hidden',
-    marginBottom: 15,
-    shadowColor: "#fff",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  loginButtonGradient: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-  },
-  loginButtonText: {
-    fontSize: 14,
-    fontFamily: "PlayfairDisplay_700Bold",
-    color: "#000",
-    letterSpacing: 1.5,
-  },
-  registerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    paddingVertical: 12,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  registerButtonText: {
-    fontSize: 14,
-    fontFamily: "PlayfairDisplay_700Bold",
-    color: "#fff",
-    letterSpacing: 1.5,
+    marginTop: 20,
+    marginBottom: 20,
+    paddingHorizontal: 40,
   },
   header: {
     flexDirection: "row",
@@ -1036,6 +1163,37 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
+  },
+  // ✅ ESTILOS DEL INDICADOR DE ESCRITURA
+  typingContainer: {
+    flexDirection: "row",
+    marginBottom: 20,
+    alignItems: "flex-start",
+  },
+  typingBubble: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderWidth: 1,
+    borderColor: "#f0f0f0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  dotsContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: "#666",
   },
   modalOverlay: {
     flex: 1,
