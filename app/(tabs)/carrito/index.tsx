@@ -1273,7 +1273,7 @@ export default function CarritoScreen() {
                           </Text>
                           
                           <View>
-                            <Text style={styles.wawalletCardLabel}>TITULAR</Text>
+                         
                             <Text style={styles.wawalletCardOwner}>
                               {tarjetaWawallet.titular}
                             </Text>
