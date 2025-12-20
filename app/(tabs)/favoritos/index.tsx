@@ -18,6 +18,7 @@ import {
   Vibration,
   View
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ NUEVO
 import {
   addToCart,
   getCart,
@@ -27,36 +28,18 @@ import {
 } from "../../../utils/storage";
 import { FancyTabBar } from "../_layout";
 
-
 const { width, height } = Dimensions.get("window");
 const HEADER_HEIGHT = Platform.OS === 'ios' ? 130 : 115;
 const CARD_WIDTH = (width - 60) / 2;
-
-
-// ✅ DETECCIÓN ADAPTABLE PARA CUALQUIER PANTALLA
-const getModalFooterPadding = () => {
-  if (Platform.OS === 'ios') return 42;
-  if (height >= 880) return 75;
-  if (height >= 850) return 20;
-  if (height >= 800) return 20;
-  if (height >= 750) return 20;
-  return 20;
-};
-
-
-const MODAL_FOOTER_PADDING = getModalFooterPadding();
-
 
 const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
 const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
 const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
 
-
 // TOAST
 const Toast = ({ visible, message, type = "success", onHide }: any) => {
   const translateY = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
-
 
   const panResponder = useRef(
     PanResponder.create({
@@ -80,14 +63,12 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
     })
   ).current;
 
-
   React.useEffect(() => {
     if (visible) {
       Animated.parallel([
         Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 7, tension: 100 }),
         Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
-
 
       setTimeout(() => {
         Animated.parallel([
@@ -98,13 +79,10 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
     }
   }, [visible]);
 
-
   if (!visible) return null;
-
 
   const bgColor = type === "error" ? "#DC2626" : type === "warning" ? "#F59E0B" : "#000";
   const icon = type === "error" ? "close-circle" : type === "warning" ? "alert-circle" : "checkmark-circle";
-
 
   return (
     <Animated.View 
@@ -125,7 +103,6 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
     </Animated.View>
   );
 };
-
 
 // ESTADO VACÍO
 const EmptyState = () => {
@@ -150,15 +127,12 @@ const EmptyState = () => {
   );
 };
 
-
 // TARJETA GRID MEMOIZADA
 const ProductCardGrid = React.memo(({ item, onPress, onToggleFavorite }: any) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-
   const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 5 }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
-
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }], width: CARD_WIDTH, marginBottom: 32 }}>
@@ -173,12 +147,10 @@ const ProductCardGrid = React.memo(({ item, onPress, onToggleFavorite }: any) =>
             </View>
           )}
 
-
           <TouchableOpacity style={styles.favBtn} onPress={onToggleFavorite} activeOpacity={0.7}>
             <Ionicons name="heart" size={19} color="#DC2626" />
           </TouchableOpacity>
         </View>
-
 
         <View style={styles.productInfo}>
           <Text style={styles.productBrand} numberOfLines={1}>{item.marca_nombre || "Maison Parfum"}</Text>
@@ -192,15 +164,12 @@ const ProductCardGrid = React.memo(({ item, onPress, onToggleFavorite }: any) =>
   );
 });
 
-
 // TARJETA COLUMNA MEMOIZADA
 const ProductCardColumn = React.memo(({ item, onPress, onToggleFavorite }: any) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-
   const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 0.97, useNativeDriver: true, friction: 5 }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true, friction: 5 }).start();
-
 
   return (
     <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
@@ -215,12 +184,10 @@ const ProductCardColumn = React.memo(({ item, onPress, onToggleFavorite }: any) 
             </View>
           )}
 
-
           <TouchableOpacity style={styles.favBtn} onPress={onToggleFavorite} activeOpacity={0.7}>
             <Ionicons name="heart" size={19} color="#DC2626" />
           </TouchableOpacity>
         </View>
-
 
         <View style={styles.productInfo}>
           <Text style={styles.productBrand} numberOfLines={1}>{item.marca_nombre || "Maison Parfum"}</Text>
@@ -233,7 +200,6 @@ const ProductCardColumn = React.memo(({ item, onPress, onToggleFavorite }: any) 
     </Animated.View>
   );
 });
-
 
 const brands = [
   { id: 2, name: "Yves-Saint-Laurent" },
@@ -254,10 +220,11 @@ const brands = [
   { id: 17, name: "Moschino" },
 ];
 
-
 export default function FavoritosScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets(); // ✅ NUEVO: Hook para área segura
+  
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -266,12 +233,10 @@ export default function FavoritosScreen() {
   const [viewMode, setViewMode] = useState<'grid' | 'column'>('grid');
   const [expandedDesc, setExpandedDesc] = useState(false);
 
-
   const heartScale = useRef(new Animated.Value(1)).current;
   const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
   const modalFlatListRef = useRef<FlatList>(null);
   const listRef = useRef<FlatList>(null);
-
 
   const tipoEquivalencias: Record<number, string> = {
     1: "Perfume",
@@ -281,12 +246,10 @@ export default function FavoritosScreen() {
     5: "Eau Fraîche",
   };
 
-
   const showToast = (message: string, type = "success") => {
     if (Platform.OS === 'ios' || Platform.OS === 'android') Vibration.vibrate(type === "error" ? [0, 80, 40, 80] : [0, 40, 20]);
     setToast({ visible: true, message, type });
   };
-
 
   const loadFavorites = async () => {
     setLoading(true);
@@ -295,26 +258,21 @@ export default function FavoritosScreen() {
     setLoading(false);
   };
 
-
   const loadCartCount = async () => {
     const cart = await getCart();
     setCartCount(cart.length);
   };
-
 
   useFocusEffect(
     useCallback(() => {
       loadFavorites();
       loadCartCount();
 
-
       const handleCartChange = () => loadCartCount();
       const handleFavChange = () => loadFavorites();
 
-
       storageEvents.on("cartChanged", handleCartChange);
       storageEvents.on("favoritesChanged", handleFavChange);
-
 
       return () => {
         storageEvents.off("cartChanged", handleCartChange);
@@ -333,12 +291,10 @@ export default function FavoritosScreen() {
     }
   }, [params.returnToModal, favorites, loading]);
 
-
   const handleToggleFavorite = async (id: number) => {
     try {
       await removeFromFavorites(id);
       const updated = await getFavorites();
-
 
       Animated.sequence([
         Animated.timing(heartScale, { toValue: 0.8, duration: 80, useNativeDriver: true }),
@@ -346,19 +302,16 @@ export default function FavoritosScreen() {
         Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, friction: 4 }),
       ]).start();
 
-
       if (updated.length === 0) {
         setFavorites([]);
         closeModal();
         return;
       }
 
-
       let newIndex = selectedIndex;
       if (selectedIndex >= updated.length) {
         newIndex = updated.length - 1;
       }
-
 
       setSelectedIndex(newIndex);
       setFavorites(updated);
@@ -367,7 +320,6 @@ export default function FavoritosScreen() {
     }
   };
 
-
   const openModal = (index: number) => {
     setSelectedIndex(index);
     setIsModalVisible(true);
@@ -375,11 +327,9 @@ export default function FavoritosScreen() {
     setTimeout(() => modalFlatListRef.current?.scrollToIndex({ index, animated: false }), 50);
   };
 
-
   const closeModal = () => {
     setIsModalVisible(false);
   };
-
 
   const handleAddToCart = async (item: any) => {
     if (item.stock === 0) {
@@ -387,11 +337,9 @@ export default function FavoritosScreen() {
       return;
     }
 
-
     try {
       const cart = await getCart();
       const exists = cart.find((i: any) => i.id === item.id);
-
 
       if (exists) {
         showToast("Este producto ya está en el cesto", "warning");
@@ -405,12 +353,10 @@ export default function FavoritosScreen() {
     }
   };
 
-
   const renderModalItem = ({ item }: any) => {
     const descText = item.descripcion || "Sin descripción disponible.";
     const descLines = descText.split('\n').length;
     const needsExpand = descLines > 3 || descText.length > 220;
-
 
     return (
       <View style={{ width, height, backgroundColor: '#fff' }}>
@@ -418,13 +364,11 @@ export default function FavoritosScreen() {
           <Image source={{ uri: item.url_imagen }} style={styles.modalImage} resizeMode="cover" />
           <LinearGradient colors={['rgba(0,0,0,0.1)', 'transparent', 'rgba(0,0,0,0.4)']} style={StyleSheet.absoluteFill} />
 
-
           {item.stock === 0 && (
             <View style={styles.modalSoldOut}>
               <Text style={styles.modalSoldOutText}>AGOTADO</Text>
             </View>
           )}
-
 
           <TouchableOpacity style={styles.modalFav} onPress={() => handleToggleFavorite(item.id)} activeOpacity={0.7}>
             <Animated.View style={{ transform: [{ scale: heartScale }] }}>
@@ -432,7 +376,6 @@ export default function FavoritosScreen() {
             </Animated.View>
           </TouchableOpacity>
         </View>
-
 
         <FlatList
           data={[item]}
@@ -452,9 +395,7 @@ export default function FavoritosScreen() {
                 </View>
               </View>
 
-
               <View style={styles.modalDivider} />
-
 
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionLabel}>Descripción</Text>
@@ -469,7 +410,6 @@ export default function FavoritosScreen() {
                   </TouchableOpacity>
                 )}
               </View>
-
 
               <View style={styles.modalSection}>
                 <Text style={styles.modalSectionLabel}>Detalles</Text>
@@ -486,7 +426,6 @@ export default function FavoritosScreen() {
                   </View>
                 </View>
               </View>
-
 
               <TouchableOpacity 
                 style={styles.brandLinkButton} 
@@ -513,8 +452,11 @@ export default function FavoritosScreen() {
           )}
         />
 
-
-        <View style={styles.modalFooter}>
+        {/* ✅ CAMBIO: Usar insets.bottom en lugar de MODAL_FOOTER_PADDING */}
+        <View style={[
+          styles.modalFooter,
+          { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 20 : insets.bottom + 24 }
+        ]}>
           <TouchableOpacity
             style={[styles.addBtn, item.stock === 0 && styles.addBtnDisabled]}
             onPress={() => handleAddToCart(item)}
@@ -530,7 +472,6 @@ export default function FavoritosScreen() {
       </View>
     );
   };
-
 
   const renderProduct = ({ item, index }: { item: any; index: number }) => {
     if (viewMode === 'grid') {
@@ -552,17 +493,13 @@ export default function FavoritosScreen() {
     }
   };
 
-
   if (loading) return <View style={{ flex: 1, backgroundColor: '#fff' }} />;
-
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
 
-
       <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
-
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push("/(tabs)")} style={styles.backButton} activeOpacity={0.7}>
@@ -571,7 +508,6 @@ export default function FavoritosScreen() {
         <Text style={styles.sectionTitle}>FAVORITOS</Text>
         <View style={{ width: 40 }} />
       </View>
-
 
       {favorites.length === 0 ? (
         <EmptyState />
@@ -614,19 +550,16 @@ export default function FavoritosScreen() {
         />
       )}
 
-
       {isModalVisible && (
         <Modal visible transparent animationType="slide">
           <View style={styles.modalBackdrop}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
-
 
             <TouchableOpacity style={styles.closeBtn} onPress={closeModal} activeOpacity={0.8}>
               <View style={styles.closeBtnInner}>
                 <Ionicons name="close" size={28} color="#1a1a1a" />
               </View>
             </TouchableOpacity>
-
 
             <FlatList
               ref={modalFlatListRef}
@@ -642,7 +575,6 @@ export default function FavoritosScreen() {
           </View>
         </Modal>
       )}
-
 
       <FancyTabBar
         cartCount={cartCount}
@@ -666,19 +598,15 @@ export default function FavoritosScreen() {
   );
 }
 
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
-
 
   header: { position: 'absolute', top: 0, left: 0, right: 0, height: HEADER_HEIGHT, backgroundColor: '#fff', zIndex: 100, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', paddingBottom: 14, paddingHorizontal: 22, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 10, elevation: 5 },
   backButton: { padding: 10 },
   sectionTitle: { fontSize: 20, textAlign: 'center', color: '#1a1a1a', letterSpacing: 2, fontFamily: FONT_TITLE, fontWeight: '700' },
 
-
   listContent: { paddingHorizontal: 22, paddingTop: HEADER_HEIGHT + 20, paddingBottom: 100 },
   gridRow: { justifyContent: 'space-between' },
-
 
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40, marginTop: HEADER_HEIGHT },
   emptyIconContainer: { marginBottom: 30 },
@@ -687,12 +615,10 @@ const styles = StyleSheet.create({
   exploreButton: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: '#000', paddingHorizontal: 30, paddingVertical: 16, borderRadius: 30, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 6 },
   exploreButtonText: { fontFamily: FONT_MODERN, fontSize: 14, color: '#fff', letterSpacing: 1, textTransform: 'uppercase', fontWeight: '600' },
 
-
   viewToggleWrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 12, marginBottom: 28 },
   viewLabel: { fontSize: 14, color: '#1a1a1a', fontFamily: FONT_MODERN, fontWeight: '600', letterSpacing: 0.5 },
   viewToggle: { flexDirection: 'row', gap: 10 },
   toggleBtn: { padding: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', borderRadius: 0 },
-
 
   productCard: { width: '100%', backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6, borderWidth: 1, borderColor: '#f5f5f5' },
   productImgBox: { width: '100%', position: 'relative' },
@@ -706,10 +632,8 @@ const styles = StyleSheet.create({
   priceContainer: { alignItems: 'flex-start' },
   productPrice: { fontSize: 17, color: '#1a1a1a', fontFamily: FONT_TITLE, fontWeight: '600' },
 
-
   productCardColumn: { width: '100%', backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6, borderWidth: 1, borderColor: '#f5f5f5', marginBottom: 20 },
   productImgBoxColumn: { width: '100%', height: width * 0.75, position: 'relative' },
-
 
   modalBackdrop: { flex: 1, backgroundColor: '#fff' },
   closeBtn: { position: 'absolute', top: 55, right: 22, zIndex: 10 },
@@ -737,7 +661,7 @@ const styles = StyleSheet.create({
   brandLinkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafafa', borderRadius: 12, padding: 20, borderWidth: 1, borderColor: '#f0f0f0', marginTop: 4 },
   brandLinkText: { fontSize: 14, color: '#1a1a1a', fontFamily: FONT_BODY, fontWeight: '600', letterSpacing: 0.2, flex: 1 },
 
-
+  // ✅ CAMBIO: Quitar paddingBottom estático del modalFooter
   modalFooter: { 
     position: 'absolute', 
     bottom: 0, 
@@ -746,7 +670,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', 
     paddingHorizontal: 24, 
     paddingTop: 22, 
-    paddingBottom: MODAL_FOOTER_PADDING,
+    // paddingBottom se añade dinámicamente con insets.bottom
     borderTopWidth: 1, 
     borderTopColor: '#f0f0f0', 
     shadowColor: '#000', 
@@ -755,11 +679,9 @@ const styles = StyleSheet.create({
     zIndex: 2 
   },
 
-
   addBtn: { backgroundColor: '#1a1a1a', borderRadius: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 19, gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 14, elevation: 10 },
   addBtnDisabled: { backgroundColor: '#f0f0f0' },
   addBtnText: { color: '#fff', fontSize: 13, letterSpacing: 2.2, fontFamily: FONT_MODERN, fontWeight: '700' },
-
 
   toast: { position: 'absolute', top: Platform.OS === 'ios' ? 60 : 50, left: 20, right: 20, borderRadius: 18, zIndex: 99999, flexDirection: 'row', alignItems: 'center', padding: 20, paddingVertical: 18, gap: 14, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 20 },
   toastText: { color: '#fff', fontSize: 15, flex: 1, fontFamily: FONT_BODY, fontWeight: '600', letterSpacing: 0.3 },

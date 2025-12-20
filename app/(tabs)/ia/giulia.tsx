@@ -393,8 +393,8 @@ useEffect(() => {
       // ✅ NUEVO CÁLCULO: Solo elevar lo justo sin tapar navbar
       // Resta el tabBarHeight para mantener espacio para el navbar
       const targetValue = Platform.OS === 'android' 
-        ? -(keyHeight - tabBarHeight - 308)  // -60 deja espacio para navbar en Android
-        : -(keyHeight - tabBarHeight - 40); // -20 para iOS
+        ? -(keyHeight - tabBarHeight - 200)  // -60 deja espacio para navbar en Android
+        : -(keyHeight - tabBarHeight - 100); // -20 para iOS
 
       console.log('🎯 Target translateY:', targetValue);
 
@@ -1078,7 +1078,6 @@ INSTRUCCIONES IMPORTANTES:
   onScroll={handleScroll}
   scrollEventThrottle={400}
 >
-
         {messages.map((item) => (
           <View
             key={item.id}

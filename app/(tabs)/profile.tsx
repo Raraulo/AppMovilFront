@@ -828,11 +828,11 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => Linking.openURL("https://www.victoriassecretbeauty.ec/politicas-de-bopis")}
+          onPress={() => Linking.openURL("https://www.google.com/maps/place/Dior/@-0.2068505,-78.4939328,20.6z/data=!4m14!1m7!3m6!1s0x91d59a10b8c57123:0x7cc4dcd53937a7dd!2sPontificia+Universidad+Cat%C3%B3lica+del+Ecuador!8m2!3d-0.2094901!4d-78.4914337!16s%2Fm%2F0cr2t42!3m5!1s0x91d59a16968e399f:0x153564a1f5a3077!8m2!3d-0.2068896!4d-78.4938508!16s%2Fg%2F11df43l5tv?entry=ttu&g_ep=EgoyMDI1MTIwOS4wIKXMDSoKLDEwMDc5MjA2OUgBUAM%3D")}
           style={styles.privacyLink}
           activeOpacity={0.7}
         >
-          <Text style={styles.privacyLinkText}>Políticas de privacidad</Text>
+          <Text style={styles.privacyLinkText}>Nuestra tienda física</Text>
         </TouchableOpacity>
       </KeyboardAwareScrollView>
     </View>

@@ -22,6 +22,7 @@ import {
   Vibration,
   View
 } from "react-native";
+import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ NUEVO
 import { FancyTabBar } from "../(tabs)/_layout";
 import { useApi } from "../../contexts/ApiContext";
 import {
@@ -39,23 +40,11 @@ const CARD_WIDTH_CAROUSEL = (width - 48) / 2.5;
 const CARD_WIDTH = (width - 60) / 2;
 const CARD_SPACING = 12;
 
-const getModalFooterPadding = () => {
-  if (Platform.OS === 'ios') return 42;
-  
-  if (height >= 880) return 75;
-  if (height >= 850) return 20;
-  if (height >= 800) return 20;
-  if (height >= 750) return 20;
-  return 20;
-};
-
-const MODAL_FOOTER_PADDING = getModalFooterPadding();
-
 const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
 const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
 const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
 
-// ✅ SKELETON SIMPLIFICADO Y SEGURO (OPCIÓN 2)
+// ✅ SKELETON SIMPLIFICADO Y SEGURO
 const SkeletonShimmer = ({ width: w, height: h, borderRadius = 0, style = {} }: any) => {
   const opacity = useRef(new Animated.Value(0.3)).current;
 
@@ -338,6 +327,7 @@ const brands = [
 export default function HomeScreen() {
   const router = useRouter();
   const apiUrl = useApi();
+  const insets = useSafeAreaInsets(); // ✅ NUEVO: Hook para área segura
   const scrollViewRef = useRef<ScrollView>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -562,7 +552,11 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
 
-        <View style={styles.modalFooter}>
+        {/* ✅ CAMBIO: Usar insets.bottom en lugar de MODAL_FOOTER_PADDING */}
+        <View style={[
+          styles.modalFooter,
+          { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 20 : insets.bottom + 24 }
+        ]}>
           <TouchableOpacity
             style={[styles.addBtn, item.stock === 0 && styles.addBtnDisabled]}
             onPress={() => handleAddToCart(item)}
@@ -869,14 +863,14 @@ const styles = StyleSheet.create({
   menu: { width: width * 0.88, height: '100%', backgroundColor: '#fff', paddingTop: 58, paddingHorizontal: 24 },
   menuHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 },
   menuLogo: { width: 78, height: 62 },
-  searchBar: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1.5, borderBottomColor: '#f0f0f0', paddingBottom: 12, marginBottom: 28 },
-  searchInput: { flex: 1, fontSize: 16, color: '#1a1a1a', fontFamily: FONT_BODY },
-  brandsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
-  brandCard: { width: (width * 0.88 - 62) / 3, height: (width * 0.88 - 62) / 3, marginBottom: 20, backgroundColor: '#fafafa', borderRadius: 12, padding: 10, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, elevation: 2, borderWidth: 1, borderColor: '#f5f5f5' },
-  brandImgBox: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
-  brandImg: { width: '85%', height: '85%' },
+  searchBar: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f8f8', borderRadius: 16, paddingHorizontal: 18, paddingVertical: 14, marginBottom: 28, borderWidth: 1, borderColor: '#f0f0f0' },
+  searchInput: { flex: 1, fontSize: 15, color: '#1a1a1a', fontFamily: FONT_BODY },
+  brandsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 2 },
+  brandCard: { width: (width * 0.88 - 68) / 2, aspectRatio: 1.15, backgroundColor: '#fff', borderRadius: 16, marginBottom: 18, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.08, shadowRadius: 10, elevation: 5, borderWidth: 1, borderColor: '#f5f5f5' },
+  brandImgBox: { width: '70%', height: '70%', justifyContent: 'center', alignItems: 'center' },
+  brandImg: { width: '100%', height: '100%' },
 
-  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 },
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 30 },
   emptyTitle: { fontSize: 18, color: '#1a1a1a', marginTop: 20, marginBottom: 10, fontFamily: FONT_TITLE, fontWeight: '600', textAlign: 'center' },
   emptySubtitle: { fontSize: 14, color: '#999', fontFamily: FONT_BODY, textAlign: 'center', lineHeight: 22 },
 
@@ -888,8 +882,8 @@ const styles = StyleSheet.create({
   modalSoldOut: { position: 'absolute', top: '45%', left: 0, right: 0, backgroundColor: '#DC2626', paddingVertical: 14, alignItems: 'center' },
   modalSoldOutText: { color: '#fff', fontSize: 11, letterSpacing: 3, fontFamily: FONT_MODERN, fontWeight: '700' },
   modalFav: { position: 'absolute', bottom: 18, right: 18, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 28, padding: 12, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12 },
-  modalScrollContent: { flex: 1, marginTop: height * 0.48 + 15 },
-  modalContent: { padding: 28, paddingTop: 24 },
+  modalScrollContent: { marginTop: height * 0.48 },
+  modalContent: { padding: 28, paddingTop: 35 },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
   modalBrand: { fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8, fontFamily: FONT_MODERN, fontWeight: '700' },
   modalTitle: { fontSize: 24, color: '#1a1a1a', lineHeight: 32, fontFamily: FONT_TITLE, fontWeight: '400', letterSpacing: 0.2 },
@@ -906,7 +900,8 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 13, color: '#1a1a1a', fontFamily: FONT_BODY, fontWeight: '600', textAlign: 'center' },
   brandLinkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafafa', borderRadius: 12, padding: 20, borderWidth: 1, borderColor: '#f0f0f0', marginTop: 4 },
   brandLinkText: { fontSize: 14, color: '#1a1a1a', fontFamily: FONT_BODY, fontWeight: '600', letterSpacing: 0.2, flex: 1 },
-  
+
+  // ✅ CAMBIO: Quitar paddingBottom estático del modalFooter
   modalFooter: { 
     position: 'absolute', 
     bottom: 0, 
@@ -915,7 +910,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', 
     paddingHorizontal: 24, 
     paddingTop: 22, 
-    paddingBottom: MODAL_FOOTER_PADDING,
+    // paddingBottom se añade dinámicamente con insets.bottom
     borderTopWidth: 1, 
     borderTopColor: '#f0f0f0', 
     shadowColor: '#000', 
@@ -923,7 +918,7 @@ const styles = StyleSheet.create({
     shadowRadius: 15, 
     zIndex: 2 
   },
-  
+
   addBtn: { backgroundColor: '#1a1a1a', borderRadius: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 19, gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 14, elevation: 10 },
   addBtnDisabled: { backgroundColor: '#f0f0f0' },
   addBtnText: { color: '#fff', fontSize: 13, letterSpacing: 2.2, fontFamily: FONT_MODERN, fontWeight: '700' },
