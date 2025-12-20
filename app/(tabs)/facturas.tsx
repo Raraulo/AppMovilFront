@@ -42,7 +42,7 @@ interface Producto {
   subtotal: number;
 }
 
-// ✅ INTERFAZ ACTUALIZADA CON TODOS LOS DATOS DEL CLIENTE
+// ✅ INTERFAZ CON DESCUENTOS
 interface Factura {
   id: number;
   numero_orden: string;
@@ -58,9 +58,12 @@ interface Factura {
     direccion?: string;
     celular?: string;
   };
+  descuento_aplicado?: boolean;
+  monto_descuento?: number;
+  total_sin_descuento?: number;
 }
 
-// ✨ ITEM DE LISTA SIMPLE Y ELEGANTE
+// ✨ ITEM DE LISTA
 const FacturaListItem = ({ factura, onPress, index }: any) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
@@ -139,6 +142,13 @@ const FacturaListItem = ({ factura, onPress, index }: any) => {
         </View>
         <View style={styles.listItemRight}>
           <Text style={styles.listItemTotal}>${factura.total.toFixed(2)}</Text>
+          {/* ✅ BADGE DE DESCUENTO EN LISTA */}
+          {factura.descuento_aplicado && (
+            <View style={styles.discountBadgeList}>
+              <Ionicons name="pricetag" size={10} color="#10B981" />
+              <Text style={styles.discountBadgeListText}>-15%</Text>
+            </View>
+          )}
           <View style={styles.chevronButton}>
             <Ionicons name="chevron-forward" size={18} color="#666" />
           </View>
@@ -192,39 +202,50 @@ export default function FacturasScreen() {
     }
   };
 
-  const loadFacturas = async (usuarioId: number) => {
-    try {
-      setLoading(true);
-      console.log(`📥 Cargando facturas del usuario ${usuarioId}...`);
-      
-      const API_URL = await getApiUrl();
-      console.log(`🌐 Usando API URL: ${API_URL}`);
+const loadFacturas = async (usuarioId: number) => {
+  try {
+    setLoading(true);
+    console.log(`📥 Cargando facturas del usuario ${usuarioId}...`);
+    
+    const API_URL = await getApiUrl();
+    console.log(`🌐 Usando API URL: ${API_URL}`);
 
-      const response = await fetch(
-        `${API_URL}/api/usuarios/${usuarioId}/facturas/`
-      );
-      const data = await response.json();
+    const response = await fetch(
+      `${API_URL}/api/usuarios/${usuarioId}/facturas/`
+    );
+    const data = await response.json();
 
-      console.log("📦 Facturas recibidas:", data);
-
-      if (response.ok) {
-        setFacturas(data.facturas || []);
-      } else {
-        console.error("❌ Error al cargar facturas:", data);
-        setFacturas([]);
-      }
-    } catch (error) {
-      console.error("Error de red:", error);
-      setFacturas([]);
-      Alert.alert(
-        "Error de Conexión",
-        "No se pudo conectar al servidor. Asegúrate de que tu servidor Django esté corriendo y que la dirección IP sea correcta."
-      );
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+    console.log("📦 Facturas recibidas:", data);
+    
+    // ✅ LOG PARA VER DESCUENTOS
+    if (data.facturas && data.facturas.length > 0) {
+      console.log("🔍 Primera factura completa:", JSON.stringify(data.facturas[0], null, 2));
+      console.log("💰 Campos de descuento:", {
+        descuento_aplicado: data.facturas[0].descuento_aplicado,
+        monto_descuento: data.facturas[0].monto_descuento,
+        total_sin_descuento: data.facturas[0].total_sin_descuento,
+      });
     }
-  };
+
+    if (response.ok) {
+      setFacturas(data.facturas || []);
+    } else {
+      console.error("❌ Error al cargar facturas:", data);
+      setFacturas([]);
+    }
+  } catch (error) {
+    console.error("Error de red:", error);
+    setFacturas([]);
+    Alert.alert(
+      "Error de Conexión",
+      "No se pudo conectar al servidor. Verifica tu conexión."
+    );
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+};
+
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -266,8 +287,13 @@ export default function FacturasScreen() {
         Vibration.vibrate(50);
       }
 
+      // ✅ CÁLCULOS CON DESCUENTO
       const IVA_PORCENTAJE = 0.15;
       const total = factura.total;
+      const tieneDescuento = factura.descuento_aplicado || false;
+      const montoDescuento = factura.monto_descuento || 0;
+      const totalSinDescuento = factura.total_sin_descuento || total;
+      
       const subtotal = total / (1 + IVA_PORCENTAJE);
       const iva = total - subtotal;
 
@@ -398,6 +424,30 @@ export default function FacturasScreen() {
       font-weight: 600;
       color: #000;
     }
+    .discount-row {
+      background: #ECFDF5;
+      padding: 14px;
+      border-radius: 8px;
+      margin: 10px 0;
+      border: 2px solid #10B981;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .discount-label {
+      font-weight: 700;
+      color: #10B981;
+      font-size: 15px;
+    }
+    .discount-value {
+      font-weight: 700;
+      color: #10B981;
+      font-size: 18px;
+    }
+    .strikethrough {
+      text-decoration: line-through;
+      color: #999;
+    }
     .final-total {
       border-top: 3px solid #000;
       padding-top: 18px;
@@ -496,6 +546,16 @@ export default function FacturasScreen() {
   </table>
 
   <div class="totals-section">
+    ${tieneDescuento ? `
+      <div class="total-row">
+        <div class="total-label">Subtotal original:</div>
+        <div class="total-value strikethrough">$${totalSinDescuento.toFixed(2)}</div>
+      </div>
+      <div class="discount-row">
+        <div class="discount-label"> Descuento Aplicado (15%)</div>
+        <div class="discount-value">-$${montoDescuento.toFixed(2)}</div>
+      </div>
+    ` : ''}
     <div class="total-row">
       <div class="total-label">Subtotal:</div>
       <div class="total-value">$${subtotal.toFixed(2)}</div>
@@ -514,6 +574,7 @@ export default function FacturasScreen() {
     <p>Gracias por su compra en Maison Des Senteurs</p>
     <p class="footer-bold">Perfumería de Lujo</p>
     <p style="margin-top: 12px;">Esta es una factura electrónica válida</p>
+    ${tieneDescuento ? '<p style="margin-top: 8px; color: #10B981; font-weight: bold;">✨ ¡Has ahorrado $' + montoDescuento.toFixed(2) + ' con tu descuento del 15%!</p>' : ''}
   </div>
 </body>
 </html>
@@ -531,7 +592,7 @@ export default function FacturasScreen() {
       });
     } catch (error) {
       console.error("❌ Error generando PDF:", error);
-      Alert.alert("Error", "No se pudo generar el PDF. Revisa los permisos de almacenamiento.");
+      Alert.alert("Error", "No se pudo generar el PDF.");
     } finally {
       setGeneratingPDF(false);
     }
@@ -628,7 +689,7 @@ export default function FacturasScreen() {
 
             <View style={styles.dividerLine} />
 
-            {/* ✅ CLIENTE CON TODOS LOS DATOS */}
+            {/* Cliente */}
             <View style={styles.clienteSection}>
               <Text style={styles.sectionLabel}>Facturado a</Text>
               <Text style={styles.clienteNombre}>
@@ -698,17 +759,42 @@ export default function FacturasScreen() {
 
             <View style={styles.dividerLine} />
 
-            {/* Resumen */}
+            {/* ✅ RESUMEN CON DESCUENTO */}
             <Text style={styles.sectionTitle}>Resumen de pago</Text>
 
             {(() => {
               const IVA_PORCENTAJE = 0.15;
               const total = selected.total;
+              const tieneDescuento = selected.descuento_aplicado || false;
+              const montoDescuento = selected.monto_descuento || 0;
+              const totalSinDescuento = selected.total_sin_descuento || total;
+              
               const subtotal = total / (1 + IVA_PORCENTAJE);
               const iva = total - subtotal;
 
               return (
                 <View style={styles.resumenContainer}>
+                  {tieneDescuento && (
+                    <>
+                      <View style={styles.resumenRow}>
+                        <Text style={styles.resumenLabel}>Subtotal original</Text>
+                        <Text style={[styles.resumenValue, { textDecorationLine: 'line-through', color: '#999' }]}>
+                          ${totalSinDescuento.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.resumenRowDescuento}>
+                        <View style={styles.descuentoBadge}>
+                          <Ionicons name="pricetag" size={16} color="#10B981" />
+                          <Text style={styles.resumenLabelDescuento}>Descuento (15%)</Text>
+                        </View>
+                        <Text style={styles.resumenValueDescuento}>
+                          -${montoDescuento.toFixed(2)}
+                        </Text>
+                      </View>
+                      <View style={styles.dividerDashed} />
+                    </>
+                  )}
+
                   <View style={styles.resumenRow}>
                     <Text style={styles.resumenLabel}>Subtotal</Text>
                     <Text style={styles.resumenValue}>${subtotal.toFixed(2)}</Text>
@@ -752,7 +838,7 @@ export default function FacturasScreen() {
           </TouchableOpacity>
         </ScrollView>
       ) : (
-        // 🧾 LISTA DE FACTURAS (SIMPLE Y LIMPIA)
+        // 🧾 LISTA DE FACTURAS
         <ScrollView
           contentContainerStyle={[
             styles.container,
@@ -801,9 +887,8 @@ export default function FacturasScreen() {
   );
 }
 
-// ✨ ESTILOS PREMIUM COMPLETOS
+// ✨ ESTILOS
 const styles = StyleSheet.create({
-  // ✨ NO LOGUEADO
   notLoggedContainer: {
     flex: 1,
     justifyContent: "center",
@@ -852,8 +937,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     fontWeight: '600',
   },
-
-  // ✨ LOADING
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -867,8 +950,6 @@ const styles = StyleSheet.create({
     color: "#666",
     fontWeight: '600',
   },
-
-  // ✨ HEADER
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -900,8 +981,6 @@ const styles = StyleSheet.create({
     letterSpacing: 2,
     fontWeight: '700',
   },
-
-  // ✨ LISTA SIMPLE
   container: {
     padding: 20,
   },
@@ -943,8 +1022,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#999",
   },
-
-  // ✨ ITEM DE LISTA
   listItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -1014,7 +1091,24 @@ const styles = StyleSheet.create({
     fontFamily: FONT_TITLE,
     fontSize: 18,
     color: "#000",
-    marginBottom: 8,
+    marginBottom: 4,
+    fontWeight: '700',
+  },
+  // ✅ BADGE DESCUENTO EN LISTA
+  discountBadgeList: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#ECFDF5',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 4,
+  },
+  discountBadgeListText: {
+    fontFamily: FONT_MODERN,
+    fontSize: 11,
+    color: "#10B981",
     fontWeight: '700',
   },
   chevronButton: {
@@ -1025,8 +1119,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // ✨ DETALLE
   detailContainer: {
     padding: 20,
   },
@@ -1093,12 +1185,6 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     fontWeight: '600',
   },
-  clienteEmail: {
-    fontFamily: FONT_BODY,
-    fontSize: 13,
-    color: "#666",
-  },
-  // ✅ NUEVOS ESTILOS PARA INFO DEL CLIENTE
   clienteInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1198,6 +1284,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#000",
     fontWeight: '600',
+  },
+  resumenRowDescuento: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    backgroundColor: '#ECFDF5',
+    borderRadius: 8,
+    marginVertical: 8,
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+  },
+  descuentoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  resumenLabelDescuento: {
+    fontFamily: FONT_BODY,
+    fontSize: 14,
+    color: "#10B981",
+    fontWeight: '700',
+  },
+  resumenValueDescuento: {
+    fontFamily: FONT_TITLE,
+    fontSize: 16,
+    color: "#10B981",
+    fontWeight: '700',
   },
   dividerDashed: {
     height: 1,

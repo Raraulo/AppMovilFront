@@ -1,4 +1,4 @@
-// app/(tabs)/ia/giulia.tsx
+// app/(tabs)/ia/giulia.tsx - ✅ VERSIÓN COMPLETA CON CORRECCIONES
 import {
   PlayfairDisplay_400Regular,
   PlayfairDisplay_600SemiBold,
@@ -7,8 +7,9 @@ import {
 } from "@expo-google-fonts/playfair-display";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { ResizeMode, Video } from 'expo-av';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import { ResizeMode, Video } from "expo-av";
+import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -19,7 +20,6 @@ import {
   FlatList,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -32,9 +32,37 @@ import {
 } from "react-native";
 import { useApi } from "../../../contexts/ApiContext";
 
-
 const { width, height } = Dimensions.get("window");
 
+// ✅ Detección de tamaño de pantalla
+const getScreenSize = () => {
+  if (height < 700) return 'small';
+  if (height < 850) return 'medium';
+  return 'large';
+};
+
+const SCREEN_SIZE = getScreenSize();
+
+// ✅ Configuración adaptativa según tamaño
+const KEYBOARD_CONFIG = {
+  small: {
+    paddingBottom: 90,
+    keyboardPadding: 80,
+    tabBarOffset: 50,
+  },
+  medium: {
+    paddingBottom: 90,
+    keyboardPadding: 100,
+    tabBarOffset: 60,
+  },
+  large: {
+    paddingBottom: 150,
+    keyboardPadding: 120,
+    tabBarOffset: 70,
+  },
+};
+
+const CONFIG = KEYBOARD_CONFIG[SCREEN_SIZE];
 
 interface Message {
   id: string;
@@ -44,7 +72,6 @@ interface Message {
   productos?: any[];
 }
 
-
 interface Conversation {
   id: string;
   nombre: string;
@@ -52,28 +79,24 @@ interface Conversation {
   mensajes: Message[];
 }
 
-
-// Datos para el carrusel
 const FEATURES = [
   {
-    id: '1',
+    id: "1",
     icon: "search",
-    text: "Recomendaciones personalizadas para tu estilo único"
+    text: "Recomendaciones personalizadas para tu estilo único",
   },
   {
-    id: '2',
+    id: "2",
     icon: "chatbubbles",
-    text: "Conversación natural, fluida e intuitiva"
+    text: "Conversación natural, fluida e intuitiva",
   },
   {
-    id: '3',
+    id: "3",
     icon: "star",
-    text: "Acceso exclusivo a nuestra colección de lujo"
-  }
+    text: "Acceso exclusivo a nuestra colección de lujo",
+  },
 ];
 
-
-// ✅ COMPONENTE DE ANIMACIÓN "ESCRIBIENDO..."
 const TypingIndicator = () => {
   const dot1 = useRef(new Animated.Value(0)).current;
   const dot2 = useRef(new Animated.Value(0)).current;
@@ -122,49 +145,212 @@ const TypingIndicator = () => {
       </View>
       <View style={styles.typingBubble}>
         <View style={styles.dotsContainer}>
-          <Animated.View style={[styles.dot, { transform: [{ translateY: dot1 }] }]} />
-          <Animated.View style={[styles.dot, { transform: [{ translateY: dot2 }] }]} />
-          <Animated.View style={[styles.dot, { transform: [{ translateY: dot3 }] }]} />
+          <Animated.View
+            style={[styles.dot, { transform: [{ translateY: dot1 }] }]}
+          />
+          <Animated.View
+            style={[styles.dot, { transform: [{ translateY: dot2 }] }]}
+          />
+          <Animated.View
+            style={[styles.dot, { transform: [{ translateY: dot3 }] }]}
+          />
         </View>
       </View>
     </View>
   );
 };
 
-
-const ProductCard = ({ producto }: { producto: any }) => (
-  <View style={styles.productCard}>
+const ProductCard = ({
+  producto,
+  onPress,
+}: {
+  producto: any;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    style={styles.productCard}
+    onPress={onPress}
+    activeOpacity={0.7}
+  >
     {producto.url_imagen && (
-      <Image 
-        source={{ uri: producto.url_imagen }} 
+      <Image
+        source={{ uri: producto.url_imagen }}
         style={styles.productImage}
         resizeMode="cover"
       />
     )}
     <View style={styles.productInfo}>
       <Text style={styles.productBrand}>{producto.marca_nombre}</Text>
-      <Text style={styles.productName} numberOfLines={2}>{producto.nombre}</Text>
-      <Text style={styles.productPrice}>${producto.precio}</Text>
-      {producto.stock > 0 && (
-        <View style={styles.stockBadge}>
-          <Text style={styles.stockText}>Disponible</Text>
-        </View>
-      )}
+      <Text style={styles.productName} numberOfLines={2}>
+        {producto.nombre}
+      </Text>
+      <View style={styles.productDetails}>
+        <Text style={styles.productPrice}>${producto.precio}</Text>
+        {producto.tipo_nombre && (
+          <Text style={styles.productType}>{producto.tipo_nombre}</Text>
+        )}
+      </View>
     </View>
-  </View>
+    <View style={styles.productArrow}>
+      <Ionicons name="chevron-forward" size={20} color="#999" />
+    </View>
+  </TouchableOpacity>
 );
 
+const SwipeableConversationItem = ({
+  conversation,
+  isActive,
+  onPress,
+  onDelete,
+  showTutorial = false,
+}: {
+  conversation: Conversation;
+  isActive: boolean;
+  onPress: () => void;
+  onDelete: () => void;
+  showTutorial?: boolean;
+}) => {
+  const translateX = useRef(new Animated.Value(0)).current;
+  const [isSwiped, setIsSwiped] = useState(false);
+
+  useEffect(() => {
+    if (showTutorial) {
+      setTimeout(() => {
+        Animated.sequence([
+          Animated.timing(translateX, {
+            toValue: -60,
+            duration: 400,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.delay(1000),
+          Animated.spring(translateX, {
+            toValue: 0,
+            friction: 8,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, 300);
+    }
+  }, [showTutorial]);
+
+  const panResponder = useRef(
+    require("react-native").PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_: any, gestureState: any) => {
+        return Math.abs(gestureState.dx) > 5;
+      },
+      onPanResponderMove: (_: any, gestureState: any) => {
+        if (gestureState.dx < 0) {
+          translateX.setValue(gestureState.dx);
+        }
+      },
+      onPanResponderRelease: (_: any, gestureState: any) => {
+        if (gestureState.dx < -80) {
+          Animated.spring(translateX, {
+            toValue: -100,
+            useNativeDriver: true,
+            friction: 8,
+          }).start();
+          setIsSwiped(true);
+        } else {
+          Animated.spring(translateX, {
+            toValue: 0,
+            useNativeDriver: true,
+            friction: 8,
+          }).start();
+          setIsSwiped(false);
+        }
+      },
+    })
+  ).current;
+
+  const closeSwipe = () => {
+    Animated.spring(translateX, {
+      toValue: 0,
+      useNativeDriver: true,
+      friction: 8,
+    }).start();
+    setIsSwiped(false);
+  };
+
+  const handlePress = () => {
+    if (isSwiped) {
+      closeSwipe();
+    } else {
+      onPress();
+    }
+  };
+
+  const handleDelete = () => {
+    Animated.timing(translateX, {
+      toValue: -width,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      onDelete();
+    });
+  };
+
+  return (
+    <View style={styles.swipeableConversationContainer}>
+      <TouchableOpacity
+        style={styles.deleteBackground}
+        onPress={handleDelete}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="trash" size={24} color="#fff" />
+      </TouchableOpacity>
+      <Animated.View
+        style={[
+          styles.conversationItemAnimated,
+          { transform: [{ translateX }] },
+        ]}
+        {...panResponder.panHandlers}
+      >
+        <TouchableOpacity
+          style={[
+            styles.conversationItem,
+            isActive && styles.conversationItemActive,
+          ]}
+          onPress={handlePress}
+          activeOpacity={0.7}
+        >
+          <View style={styles.conversationIcon}>
+            <Ionicons name="chatbubbles" size={20} color="#666" />
+          </View>
+          <View style={styles.conversationInfo}>
+            <Text style={styles.conversationName}>{conversation.nombre}</Text>
+            <Text style={styles.conversationDate}>
+              {conversation.fecha.toLocaleDateString("es-ES")} -{" "}
+              {conversation.mensajes.length} mensajes
+            </Text>
+          </View>
+          {isActive && (
+            <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+          )}
+        </TouchableOpacity>
+      </Animated.View>
+    </View>
+  );
+};
 
 export default function GiuliaScreen() {
   const router = useRouter();
   const apiUrl = useApi();
+  const tabBarHeight = useBottomTabBarHeight();
   const scrollViewRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
   const videoRef = useRef<Video>(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateAnim = useRef(new Animated.Value(40)).current;
 
+  // ✅ CAMBIO: Usar translateY en lugar de bottom
+  const inputTranslateY = useRef(new Animated.Value(0)).current;
 
-  // Estado para el carrusel
+  // ✅ NUEVO: Estado para mostrar/ocultar botón scroll to bottom
+  const [showScrollButton, setShowScrollButton] = useState(false);
+
   const [activeSlide, setActiveSlide] = useState(0);
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
@@ -172,13 +358,11 @@ export default function GiuliaScreen() {
     }
   }).current;
 
-
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_400Regular,
     PlayfairDisplay_600SemiBold,
     PlayfairDisplay_700Bold,
   });
-
 
   const [isLogged, setIsLogged] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -186,11 +370,67 @@ export default function GiuliaScreen() {
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [productos, setProductos] = useState<any[]>([]);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [conversaciones, setConversaciones] = useState<Conversation[]>([]);
-  const [conversacionActual, setConversacionActual] = useState<string | null>(null);
+  const [conversacionActual, setConversacionActual] = useState<string | null>(
+    null
+  );
   const [modalHistorial, setModalHistorial] = useState(false);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
+  
+// ✅ AJUSTE: Gestión del teclado SIN TAPAR NAVBAR
+useEffect(() => {
+  console.log('🔧 TabBarHeight detectado:', tabBarHeight);
+
+  const keyboardDidShowListener = Keyboard.addListener(
+    Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+    (e) => {
+      const keyHeight = e.endCoordinates.height;
+      console.log('⌨️ Teclado mostrado - Altura:', keyHeight);
+      setKeyboardHeight(keyHeight);
+
+      // ✅ NUEVO CÁLCULO: Solo elevar lo justo sin tapar navbar
+      // Resta el tabBarHeight para mantener espacio para el navbar
+      const targetValue = Platform.OS === 'android' 
+        ? -(keyHeight - tabBarHeight - 308)  // -60 deja espacio para navbar en Android
+        : -(keyHeight - tabBarHeight - 40); // -20 para iOS
+
+      console.log('🎯 Target translateY:', targetValue);
+
+      Animated.spring(inputTranslateY, {
+        toValue: targetValue,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 40,
+      }).start();
+
+      setTimeout(() => {
+        scrollViewRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  );
+
+  const keyboardDidHideListener = Keyboard.addListener(
+    Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+    () => {
+      console.log('⌨️ Teclado oculto');
+      setKeyboardHeight(0);
+
+      Animated.spring(inputTranslateY, {
+        toValue: 0,
+        useNativeDriver: true,
+        friction: 8,
+        tension: 40,
+      }).start();
+    }
+  );
+
+  return () => {
+    keyboardDidShowListener.remove();
+    keyboardDidHideListener.remove();
+  };
+}, [tabBarHeight]);
 
   useEffect(() => {
     checkAuth();
@@ -198,67 +438,85 @@ export default function GiuliaScreen() {
     cargarConversaciones();
   }, [apiUrl]);
 
+  useEffect(() => {
+    const cargarConversacionTemporal = async () => {
+      try {
+        const temporal = await AsyncStorage.getItem(
+          "giulia_conversacion_temporal"
+        );
+        if (temporal) {
+          const data = JSON.parse(temporal);
+          setMessages(
+            data.mensajes.map((m: any) => ({
+              ...m,
+              timestamp: new Date(m.timestamp),
+            }))
+          );
+          setConversacionActual(data.id);
+          console.log("✅ Conversación cargada desde temporal");
+        } else if (!conversacionActual) {
+          crearNuevaConversacion();
+        }
+      } catch (error) {
+        console.error("Error cargando conversación temporal:", error);
+        crearNuevaConversacion();
+      }
+    };
+
+    if (isLogged) {
+      cargarConversacionTemporal();
+    }
+  }, [isLogged]);
 
   useEffect(() => {
-    if (isLogged) {
-      if (!conversacionActual) {
-        crearNuevaConversacion();
-      } else {
-        cargarMensajesConversacion(conversacionActual);
-      }
-      
-      const keyboardDidShowListener = Keyboard.addListener(
-        'keyboardDidShow',
-        (e) => {
-          setKeyboardHeight(e.endCoordinates.height);
-          setTimeout(() => {
-            scrollViewRef.current?.scrollToEnd({ animated: true });
-          }, 100);
-        }
-      );
+    if (conversacionActual && messages.length > 0) {
+      const timeoutId = setTimeout(() => {
+        guardarConversacionActualTemporal();
+      }, 500);
 
-
-      const keyboardDidHideListener = Keyboard.addListener(
-        'keyboardDidHide',
-        () => {
-          setKeyboardHeight(0);
-        }
-      );
-
-
-      return () => {
-        keyboardDidShowListener.remove();
-        keyboardDidHideListener.remove();
-      };
+      return () => clearTimeout(timeoutId);
     }
-  }, [isLogged, conversacionActual]);
-
+  }, [messages, conversacionActual]);
 
   useEffect(() => {
     if (!checkingAuth) {
       Animated.parallel([
-        Animated.timing(fadeAnim, { 
-          toValue: 1, 
-          duration: 600, 
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 600,
           useNativeDriver: true,
           easing: Easing.out(Easing.cubic),
         }),
-        Animated.spring(translateAnim, { 
-          toValue: 0, 
+        Animated.spring(translateAnim, {
+          toValue: 0,
           tension: 50,
           friction: 7,
-          useNativeDriver: true 
+          useNativeDriver: true,
         }),
       ]).start();
     }
   }, [checkingAuth]);
 
+  // ✅ NUEVO: Detectar si el usuario está cerca del final
+  const handleScroll = (event: any) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isNearBottom = 
+      layoutMeasurement.height + contentOffset.y >= contentSize.height - 100;
+    setShowScrollButton(!isNearBottom);
+  };
+
+  // ✅ NUEVO: Función para ir al final
+  const scrollToBottom = () => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  };
 
   const checkAuth = async () => {
     try {
       const storedUser = await AsyncStorage.getItem("user");
-      const access = (await AsyncStorage.getItem("access")) || (await AsyncStorage.getItem("token"));
-      
+      const access =
+        (await AsyncStorage.getItem("access")) ||
+        (await AsyncStorage.getItem("token"));
+
       if (storedUser && access) {
         setIsLogged(true);
       } else {
@@ -272,67 +530,119 @@ export default function GiuliaScreen() {
     }
   };
 
-
   const cargarProductos = async () => {
+    setLoadingProducts(true);
     try {
-      if (!apiUrl) return;
-      const res = await fetch(`${apiUrl}/api/productos/`);
+      if (!apiUrl) {
+        console.warn("⚠️ API URL no disponible");
+        return;
+      }
+
+      console.log("📡 Conectando a:", `${apiUrl}/api/productos/`);
+      const res = await fetch(`${apiUrl}/api/productos/`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
       const data = await res.json();
+      console.log("✅ Productos cargados desde API:", data.length);
+
+      await AsyncStorage.setItem("giulia_productos_cache", JSON.stringify(data));
       setProductos(data);
-      console.log("✅ Productos cargados:", data.length);
     } catch (error) {
-      console.error("❌ Error cargando productos:", error);
+      console.error("❌ Error cargando productos desde API:", error);
+
+      try {
+        const cache = await AsyncStorage.getItem("giulia_productos_cache");
+        if (cache) {
+          const cachedData = JSON.parse(cache);
+          setProductos(cachedData);
+          console.log("✅ Productos cargados desde caché:", cachedData.length);
+        }
+      } catch (cacheError) {
+        console.error("❌ Error cargando caché:", cacheError);
+      }
+    } finally {
+      setLoadingProducts(false);
     }
   };
-
 
   const cargarConversaciones = async () => {
     try {
       const saved = await AsyncStorage.getItem("giulia_conversaciones");
       if (saved) {
         const parsed = JSON.parse(saved);
-        setConversaciones(parsed.map((c: any) => ({
-          ...c,
-          fecha: new Date(c.fecha),
-          mensajes: c.mensajes.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }))
-        })));
+        const conversacionesValidas = parsed
+          .filter((c: any) => c && c.id && c.mensajes && c.mensajes.length >= 1)
+          .map((c: any) => ({
+            ...c,
+            fecha: new Date(c.fecha),
+            mensajes: c.mensajes.map((m: any) => ({
+              ...m,
+              timestamp: new Date(m.timestamp),
+            })),
+          }));
+        setConversaciones(conversacionesValidas);
+        console.log("✅ Conversaciones cargadas:", conversacionesValidas.length);
       }
     } catch (error) {
       console.error("Error cargando conversaciones:", error);
+      await AsyncStorage.removeItem("giulia_conversaciones");
     }
   };
 
-
-  // ✅ MODIFICADO: No guarda conversaciones vacías
   const guardarConversaciones = async (convs: Conversation[]) => {
     try {
-      // Filtrar conversaciones que tengan al menos un mensaje del usuario
-      const convsConMensajes = convs.filter(conv => 
-        conv.mensajes.some(m => m.isUser)
+      const convsValidas = convs.filter(
+        (conv) => conv && conv.id && conv.mensajes && conv.mensajes.length >= 2
       );
-      await AsyncStorage.setItem("giulia_conversaciones", JSON.stringify(convsConMensajes));
+      await AsyncStorage.setItem(
+        "giulia_conversaciones",
+        JSON.stringify(convsValidas)
+      );
+      console.log("✅ Conversaciones guardadas:", convsValidas.length);
     } catch (error) {
       console.error("Error guardando conversaciones:", error);
     }
   };
 
+  const guardarConversacionActualTemporal = async () => {
+    try {
+      if (conversacionActual && messages.length > 0) {
+        const conversacionData = {
+          id: conversacionActual,
+          mensajes: messages,
+        };
+        await AsyncStorage.setItem(
+          "giulia_conversacion_temporal",
+          JSON.stringify(conversacionData)
+        );
+      }
+    } catch (error) {
+      console.error("Error guardando conversación temporal:", error);
+    }
+  };
 
   const crearNuevaConversacion = () => {
     const welcomeMessage: Message = {
       id: Date.now().toString(),
-      text: "Bienvenido a Maison Des Senteurs ✨\n\nSoy Giulia, su asistente personal de fragancias de lujo. Estoy aquí para ayudarle a descubrir el perfume perfecto que complemente su estilo y personalidad.\n\n¿Qué tipo de fragancia está buscando hoy?",
+      text: `Bienvenido a Maison Des Senteurs ✨\n\nSoy Giulia, su asesora personal de fragancias de lujo. Tengo acceso a nuestro exclusivo catálogo de ${productos.length} fragancias premium de las mejores casas del mundo.\n\n¿Qué tipo de experiencia olfativa está buscando hoy?`,
       isUser: false,
       timestamp: new Date(),
     };
-
 
     const nuevaConv: Conversation = {
       id: Date.now().toString(),
       nombre: "Nueva conversación",
       fecha: new Date(),
-      mensajes: [welcomeMessage]
+      mensajes: [welcomeMessage],
     };
-
 
     const nuevasConvs = [nuevaConv, ...conversaciones];
     setConversaciones(nuevasConvs);
@@ -341,57 +651,126 @@ export default function GiuliaScreen() {
     guardarConversaciones(nuevasConvs);
   };
 
+  const eliminarConversacion = async (convId: string) => {
+    try {
+      console.log("🗑️ Eliminando conversación:", convId);
+
+      const nuevasConvs = conversaciones.filter((c) => c.id !== convId);
+      setConversaciones(nuevasConvs);
+
+      await guardarConversaciones(nuevasConvs);
+
+      if (convId === conversacionActual) {
+        await AsyncStorage.removeItem("giulia_conversacion_temporal");
+
+        if (nuevasConvs.length > 0) {
+          const primeraConv = nuevasConvs[0];
+          setMessages(primeraConv.mensajes);
+          setConversacionActual(primeraConv.id);
+
+          await AsyncStorage.setItem(
+            "giulia_conversacion_temporal",
+            JSON.stringify({
+              id: primeraConv.id,
+              mensajes: primeraConv.mensajes,
+            })
+          );
+        } else {
+          setMessages([]);
+          setConversacionActual(null);
+          setTimeout(() => {
+            crearNuevaConversacion();
+          }, 100);
+        }
+      }
+
+      console.log("✅ Conversación eliminada exitosamente");
+    } catch (error) {
+      console.error("❌ Error eliminando conversación:", error);
+    }
+  };
 
   const cargarMensajesConversacion = (convId: string) => {
-    const conv = conversaciones.find(c => c.id === convId);
+    const conv = conversaciones.find((c) => c.id === convId);
     if (conv) {
       setMessages(conv.mensajes);
       setConversacionActual(convId);
     }
   };
 
-
   const actualizarConversacionActual = (nuevosMensajes: Message[]) => {
     if (!conversacionActual) return;
 
-
-    const nuevasConvs = conversaciones.map(c => {
+    const nuevasConvs = conversaciones.map((c) => {
       if (c.id === conversacionActual) {
         let nuevoNombre = c.nombre;
         if (c.nombre === "Nueva conversación") {
-          const primerMensajeUsuario = nuevosMensajes.find(m => m.isUser);
+          const primerMensajeUsuario = nuevosMensajes.find((m) => m.isUser);
           if (primerMensajeUsuario) {
-            const palabras = primerMensajeUsuario.text.trim().split(/\s+/).slice(0, 4);
-            nuevoNombre = palabras.join(' ') + '...';
+            const palabras = primerMensajeUsuario.text
+              .trim()
+              .split(/\s+/)
+              .slice(0, 4);
+            nuevoNombre = palabras.join(" ") + "...";
           }
         }
-        return { ...c, nombre: nuevoNombre, mensajes: nuevosMensajes, fecha: new Date() };
+        return {
+          ...c,
+          nombre: nuevoNombre,
+          mensajes: nuevosMensajes,
+          fecha: new Date(),
+        };
       }
       return c;
     });
-
 
     setConversaciones(nuevasConvs);
     guardarConversaciones(nuevasConvs);
   };
 
-
-  const extraerProductosRecomendados = (respuesta: string, productosDisponibles: any[]): any[] => {
+  const extraerProductosRecomendados = (
+    respuesta: string,
+    productosDisponibles: any[]
+  ): any[] => {
     const productosEncontrados: any[] = [];
-    
-    productosDisponibles.forEach(producto => {
-      if (respuesta.toLowerCase().includes(producto.nombre.toLowerCase())) {
-        productosEncontrados.push(producto);
+    const productosConStock: any[] = [];
+
+    productosDisponibles.forEach((producto) => {
+      const nombreCompleto = `${producto.nombre} ${producto.marca_nombre}`.toLowerCase();
+      const respuestaLower = respuesta.toLowerCase();
+
+      if (
+        respuestaLower.includes(producto.nombre.toLowerCase()) ||
+        respuestaLower.includes(nombreCompleto)
+      ) {
+        if (producto.stock > 0) {
+          productosConStock.push(producto);
+        } else {
+          productosEncontrados.push(producto);
+        }
       }
     });
-    
-    return productosEncontrados.slice(0, 3);
+
+    return [...productosConStock, ...productosEncontrados].slice(0, 3);
   };
 
+  const navegarAProducto = (producto: any) => {
+    router.push(`/marcas/${producto.marca_nombre}`);
+  };
 
   const enviarMensaje = async () => {
     if (!inputText.trim() || isLoading) return;
 
+    if (productos.length === 0) {
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        text: "Disculpe, estoy teniendo problemas para acceder al catálogo en este momento. Por favor, intente nuevamente en unos instantes.",
+        isUser: false,
+        timestamp: new Date(),
+      };
+      setMessages([...messages, errorMessage]);
+      return;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -400,111 +779,121 @@ export default function GiuliaScreen() {
       timestamp: new Date(),
     };
 
-
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     const consultaUsuario = inputText.trim();
     setInputText("");
     setIsLoading(true);
 
-
+    // ✅ Auto-scroll después de enviar mensaje
     setTimeout(() => {
-      scrollViewRef.current?.scrollToEnd({ animated: true });
+      scrollToBottom();
     }, 100);
-
 
     try {
       const consultaLower = consultaUsuario.toLowerCase();
-      const esMasculino = /hombre|masculino|caballero|él|para él/i.test(consultaLower);
-      const esFemenino = /mujer|femenino|dama|ella|para ella/i.test(consultaLower);
-      
-      let productosRelevantes = productos.filter(p => p.stock > 0);
-      
-      if (esMasculino) {
-        productosRelevantes = productosRelevantes.filter(p => 
-          p.genero === "Masculino" || p.genero === "Unisex"
+      const esMasculino =
+        /\b(hombre|masculino|caballero|él|para él|him|men)\b/i.test(consultaLower);
+      const esFemenino =
+        /\b(mujer|femenino|dama|ella|para ella|her|women)\b/i.test(consultaLower);
+
+      let productosRelevantes = productos.filter((p) => p.stock > 0);
+
+      if (esMasculino && !esFemenino) {
+        productosRelevantes = productosRelevantes.filter(
+          (p) => p.genero === "Masculino" || p.genero === "Unisex"
         );
-      } else if (esFemenino) {
-        productosRelevantes = productosRelevantes.filter(p => 
-          p.genero === "Femenino" || p.genero === "Unisex"
+      } else if (esFemenino && !esMasculino) {
+        productosRelevantes = productosRelevantes.filter(
+          (p) => p.genero === "Femenino" || p.genero === "Unisex"
         );
       }
-      
-      productosRelevantes = productosRelevantes.slice(0, 20);
 
+      productosRelevantes = productosRelevantes
+        .sort((a, b) => b.stock - a.stock)
+        .slice(0, 15);
 
       const inventarioTexto = productosRelevantes
-        .map((p) => `${p.nombre} de ${p.marca_nombre}: $${p.precio}. ${p.descripcion || ''}`)
+        .map(
+          (p) =>
+            `${p.nombre} de ${p.marca_nombre} (${p.tipo_nombre}): $${p.precio}. Stock: ${p.stock}. ${p.descripcion || ""
+            }`
+        )
         .join("\n");
 
+      const prompt = `Eres Giulia, experta consultora de fragancias de lujo de Maison Des Senteurs.
 
-      const prompt = `Eres Giulia, experta en fragancias de Maison Des Senteurs. Recomienda perfumes SOLO del siguiente inventario:
-
-
+INVENTARIO DISPONIBLE (${productosRelevantes.length} fragancias con stock):
 ${inventarioTexto}
 
+CONSULTA DEL CLIENTE: ${consultaUsuario}
 
-Consulta del cliente: ${consultaUsuario}
-
-
-IMPORTANTE: 
+INSTRUCCIONES IMPORTANTES:
+- Recomienda ÚNICAMENTE fragancias del inventario proporcionado arriba
 - NO uses asteriscos, negritas ni formato markdown
-- Escribe en texto plano y elegante
-- Máximo 3 recomendaciones
-- Menciona el nombre exacto del perfume y la marca
-- Explica brevemente por qué es adecuado
-- Usa emojis sutiles solo para dar elegancia (✨🌸💎)`;
+- Escribe en texto plano y elegante con un tono profesional
+- Máximo 3 recomendaciones específicas
+- Menciona el nombre EXACTO del perfume y la marca tal como aparece en el inventario
+- Explica brevemente por qué cada fragancia es adecuada para lo que busca el cliente
+- Si mencionas precio o stock, usa la información exacta del inventario
+- Usa emojis sutiles solo para dar elegancia (✨🌸💎)
+- Si el cliente pregunta por algo no disponible, ofrece alternativas similares del inventario`;
 
+      console.log("📤 Enviando consulta a Perplexity AI...");
 
-      console.log("📤 Enviando a Perplexity...");
+      const response = await fetch(
+        "https://api.perplexity.ai/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization:
+              "Bearer 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",
+          },
+          body: JSON.stringify({
+            model: "sonar",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "Eres Giulia, asesora de fragancias de lujo de Maison Des Senteurs. Respondes en texto plano sin asteriscos ni formato markdown. Escribe de forma elegante, profesional y personalizada. Tu objetivo es ayudar a los clientes a encontrar la fragancia perfecta del inventario disponible.",
+              },
+              {
+                role: "user",
+                content: prompt,
+              },
+            ],
+            max_tokens: 600,
+            temperature: 0.7,
+          }),
+        }
+      );
 
-
-      const response = await fetch("https://api.perplexity.ai/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer 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",
-        },
-        body: JSON.stringify({
-          model: "sonar",
-          messages: [
-            {
-              role: "system",
-              content: "Eres Giulia, asesora de fragancias de lujo. Respondes en texto plano sin asteriscos ni formato markdown. Escribe de forma elegante y profesional.",
-            },
-            {
-              role: "user",
-              content: prompt,
-            },
-          ],
-          max_tokens: 500,
-          temperature: 0.7,
-        }),
-      });
-
-
-      console.log("📥 Status:", response.status);
-
+      console.log("📥 Respuesta recibida. Status:", response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error("❌ Error API:", errorText);
-        throw new Error(`Error ${response.status}: No se pudo conectar con el servicio de IA`);
+        throw new Error(
+          `Error ${response.status}: No se pudo conectar con el servicio de IA`
+        );
       }
 
-
       const data = await response.json();
-      let aiResponse = data.choices[0]?.message?.content || "Disculpe, no pude procesar su solicitud.";
-      
+      let aiResponse =
+        data.choices[0]?.message?.content ||
+        "Disculpe, no pude procesar su solicitud en este momento.";
+
       aiResponse = aiResponse
-        .replace(/\*\*/g, '')
-        .replace(/\*/g, '')
-        .replace(/#{1,6}\s/g, '')
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+        .replace(/\*\*/g, "")
+        .replace(/\*/g, "")
+        .replace(/#{1,6}\s/g, "")
+        .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");
 
-
-      const productosRecomendados = extraerProductosRecomendados(aiResponse, productosRelevantes);
-
+      const productosRecomendados = extraerProductosRecomendados(
+        aiResponse,
+        productosRelevantes
+      );
 
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -514,21 +903,22 @@ IMPORTANTE:
         productos: productosRecomendados,
       };
 
-
       const finalMessages = [...updatedMessages, aiMessage];
       setMessages(finalMessages);
       actualizarConversacionActual(finalMessages);
 
+      console.log("✅ Respuesta procesada exitosamente");
+      console.log("🎁 Productos recomendados:", productosRecomendados.length);
 
-      console.log("✅ Respuesta exitosa");
+      // ✅ Auto-scroll después de recibir respuesta
       setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 200);
+        scrollToBottom();
+      }, 300);
     } catch (error: any) {
-      console.error("❌ Error:", error);
+      console.error("❌ Error completo:", error);
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: "Disculpe, hubo un problema técnico. Por favor verifique su conexión o intente más tarde.",
+        text: "Disculpe, hubo un problema técnico al procesar su consulta. Por favor, verifique su conexión a internet e intente nuevamente.",
         isUser: false,
         timestamp: new Date(),
       };
@@ -540,13 +930,10 @@ IMPORTANTE:
     }
   };
 
-
   const detenerIA = () => {
     setIsLoading(false);
   };
 
-
-  // Renderizado de cada item del carrusel
   const renderCarouselItem = ({ item }: { item: any }) => (
     <View style={styles.carouselItem}>
       <View style={styles.carouselIconContainer}>
@@ -556,24 +943,26 @@ IMPORTANTE:
     </View>
   );
 
-
   if (!fontsLoaded || checkingAuth) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#000" />
+        <Text style={styles.loadingText}>Iniciando Giulia AI...</Text>
       </View>
     );
   }
 
-
   if (!isLogged) {
     return (
       <Animated.View
-        style={[styles.notLoggedContainer, { opacity: fadeAnim, transform: [{ translateY: translateAnim }] }]}
+        style={[
+          styles.notLoggedContainer,
+          { opacity: fadeAnim, transform: [{ translateY: translateAnim }] },
+        ]}
       >
         <Video
           ref={videoRef}
-          source={require('../../../assets/images/giulia.mp4')}
+          source={require("../../../assets/images/giulia.mp4")}
           style={styles.videoBackground}
           resizeMode={ResizeMode.COVER}
           shouldPlay
@@ -581,23 +970,22 @@ IMPORTANTE:
           isMuted
           useNativeControls={false}
         />
-        
+
         <LinearGradient
-          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.8)']}
+          colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.4)", "rgba(0,0,0,0.8)"]}
           style={styles.videoOverlay}
         />
-
 
         <View style={styles.notLoggedContent}>
           <View style={styles.aiIconContainer}>
             <Ionicons name="sparkles" size={60} color="#fff" />
           </View>
-          
+
           <Text style={styles.notLoggedTitle}>Conoce a Giulia AI</Text>
           <Text style={styles.notLoggedSubtitle}>
-            Tu asistente personal de fragancias
+            Tu asesora personal de fragancias de lujo
           </Text>
-          
+
           <View style={styles.carouselContainer}>
             <FlatList
               data={FEATURES}
@@ -610,21 +998,20 @@ IMPORTANTE:
               viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
               scrollEventThrottle={16}
             />
-
-
             <View style={styles.paginationContainer}>
               {FEATURES.map((_, index) => (
                 <View
                   key={index}
                   style={[
                     styles.paginationDot,
-                    activeSlide === index ? styles.paginationDotActive : styles.paginationDotInactive,
+                    activeSlide === index
+                      ? styles.paginationDotActive
+                      : styles.paginationDotInactive,
                   ]}
                 />
               ))}
             </View>
           </View>
-
 
           <Text style={styles.loginPrompt}>
             Por favor inicia sesión para acceder a la experiencia completa
@@ -634,172 +1021,226 @@ IMPORTANTE:
     );
   }
 
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
-
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <Text style={styles.headerTitle}>Giulia</Text>
-          <Text style={styles.headerSubtitle}>Asesora de fragancias de lujo</Text>
+          <Text style={styles.headerSubtitle}>
+            Asesora de fragancias de lujo
+          </Text>
         </View>
-        <TouchableOpacity onPress={() => setModalHistorial(true)} style={styles.historyButton}>
-          <Ionicons name="time-outline" size={24} color="#000" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            onPress={cargarProductos}
+            style={styles.refreshButton}
+            activeOpacity={0.7}
+            disabled={loadingProducts}
+          >
+            {loadingProducts ? (
+              <ActivityIndicator size="small" color="#000" />
+            ) : (
+              <Ionicons name="refresh" size={22} color="#000" />
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={crearNuevaConversacion}
+            style={styles.newChatButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="add" size={24} color="#000" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setModalHistorial(true)}
+            style={styles.historyButton}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="time-outline" size={24} color="#000" />
+          </TouchableOpacity>
+        </View>
       </View>
 
+<ScrollView
+  ref={scrollViewRef}
+  style={styles.messagesContainer}
+  contentContainerStyle={{
+    padding: 16,
+    // ✅ REDUCIR el padding cuando el teclado está abierto
+    paddingBottom: keyboardHeight > 0
+      ? 200  // Solo 80px de espacio con teclado (ajústalo a tu gusto)
+      : tabBarHeight + CONFIG.paddingBottom
+  }}
+  showsVerticalScrollIndicator={false}
+  keyboardShouldPersistTaps="handled"
+  keyboardDismissMode="interactive"
+  onScroll={handleScroll}
+  scrollEventThrottle={400}
+>
 
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
-      >
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={[styles.messagesList, { paddingBottom: keyboardHeight > 0 ? 20 : 100 }]}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => scrollViewRef.current?.scrollToEnd({ animated: true })}
-          keyboardShouldPersistTaps="handled"
-        >
-          {messages.map((item) => (
-            <View
-              key={item.id}
-              style={[
-                styles.messageContainer,
-                item.isUser ? styles.userMessageContainer : styles.aiMessageContainer,
-              ]}
-            >
-              {!item.isUser && (
-                <View style={styles.aiAvatar}>
-                  <Ionicons name="sparkles" size={18} color="#fff" />
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <View
+        {messages.map((item) => (
+          <View
+            key={item.id}
+            style={[
+              styles.messageContainer,
+              item.isUser
+                ? styles.userMessageContainer
+                : styles.aiMessageContainer,
+            ]}
+          >
+            {!item.isUser && (
+              <View style={styles.aiAvatar}>
+                <Ionicons name="sparkles" size={18} color="#fff" />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <View
+                style={[
+                  styles.messageBubble,
+                  item.isUser ? styles.userBubble : styles.aiBubble,
+                ]}
+              >
+                <Text
                   style={[
-                    styles.messageBubble,
-                    item.isUser ? styles.userBubble : styles.aiBubble,
+                    styles.messageText,
+                    item.isUser
+                      ? styles.userMessageText
+                      : styles.aiMessageText,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      item.isUser ? styles.userMessageText : styles.aiMessageText,
-                    ]}
-                  >
-                    {item.text}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.timestamp,
-                      item.isUser ? styles.userTimestamp : styles.aiTimestamp,
-                    ]}
-                  >
-                    {item.timestamp.toLocaleTimeString("es-ES", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </Text>
-                </View>
-                
-                {!item.isUser && item.productos && item.productos.length > 0 && (
+                  {item.text}
+                </Text>
+              </View>
+
+              {!item.isUser &&
+                item.productos &&
+                item.productos.length > 0 && (
                   <View style={styles.productosContainer}>
                     {item.productos.map((producto, index) => (
-                      <ProductCard key={`${item.id}-${index}`} producto={producto} />
+                      <ProductCard
+                        key={`${item.id}-${index}`}
+                        producto={producto}
+                        onPress={() => navegarAProducto(producto)}
+                      />
                     ))}
                   </View>
                 )}
-              </View>
             </View>
-          ))}
-          
-          {/* ✅ INDICADOR DE "ESCRIBIENDO..." */}
-          {isLoading && <TypingIndicator />}
-        </ScrollView>
-
-
-        <View style={[styles.inputContainer, Platform.OS === 'android' && keyboardHeight > 0 && { marginBottom: keyboardHeight }]}>
-          <View style={styles.inputWrapper}>
-            <TextInput
-              style={styles.input}
-              placeholder="¿Qué buscas… o debería intuirlo?..."
-              placeholderTextColor="#999"
-              value={inputText}
-              onChangeText={(text) => {
-                setInputText(text);
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 50);
-              }}
-              multiline
-              maxLength={500}
-              editable={!isLoading}
-              onFocus={() => {
-                setTimeout(() => {
-                  scrollViewRef.current?.scrollToEnd({ animated: true });
-                }, 300);
-              }}
-            />
-            {isLoading ? (
-              <TouchableOpacity
-                style={styles.stopButton}
-                onPress={detenerIA}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="stop" size={20} color="#fff" />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-                onPress={enviarMensaje}
-                disabled={!inputText.trim()}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="send" size={20} color="#fff" />
-              </TouchableOpacity>
-            )}
           </View>
+        ))}
+
+        {isLoading && <TypingIndicator />}
+      </ScrollView>
+
+      {/* ✅ NUEVO: Botón flotante para ir al final */}
+      {showScrollButton && messages.length > 3 && (
+        <TouchableOpacity
+          style={styles.scrollToBottomButton}
+          onPress={scrollToBottom}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="arrow-down" size={20} color="#fff" />
+        </TouchableOpacity>
+      )}
+
+      {/* ✅ CAMBIO: Input con transform en lugar de bottom */}
+      <Animated.View
+        style={[
+          styles.inputContainer,
+          {
+            transform: [{ translateY: inputTranslateY }],
+            bottom: tabBarHeight,
+            left: 0,
+            right: 0,
+            width: width,
+          }
+        ]}
+      >
+        <View style={styles.inputWrapper}>
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            placeholder="¿Qué fragancia buscas hoy?..."
+            placeholderTextColor="#999"
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            maxLength={500}
+            editable={!isLoading}
+          />
+          {isLoading ? (
+            <TouchableOpacity
+              style={styles.stopButton}
+              onPress={detenerIA}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="stop" size={20} color="#fff" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.sendButton,
+                !inputText.trim() && styles.sendButtonDisabled,
+              ]}
+              onPress={enviarMensaje}
+              disabled={!inputText.trim()}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="send" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
         </View>
-      </KeyboardAvoidingView>
+      </Animated.View>
 
-
-      <Modal visible={modalHistorial} animationType="slide" transparent onRequestClose={() => setModalHistorial(false)}>
+      <Modal
+        visible={modalHistorial}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setModalHistorial(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Historial</Text>
-              <TouchableOpacity onPress={() => setModalHistorial(false)}>
+              <TouchableOpacity
+                onPress={() => setModalHistorial(false)}
+                activeOpacity={0.7}
+              >
                 <Ionicons name="close" size={28} color="#000" />
               </TouchableOpacity>
             </View>
-            <ScrollView style={styles.conversationsList}>
+            <ScrollView
+              style={styles.conversationsList}
+              showsVerticalScrollIndicator={false}
+            >
               {conversaciones.length === 0 ? (
                 <View style={styles.emptyHistory}>
-                  <Ionicons name="chatbubbles-outline" size={60} color="#ddd" />
-                  <Text style={styles.emptyHistoryText}>No hay conversaciones guardadas</Text>
+                  <Ionicons
+                    name="chatbubbles-outline"
+                    size={60}
+                    color="#ddd"
+                  />
+                  <Text style={styles.emptyHistoryText}>
+                    No hay conversaciones guardadas
+                  </Text>
+                  <Text style={styles.emptyHistorySubtext}>
+                    Tus consultas con Giulia aparecerán aquí
+                  </Text>
                 </View>
               ) : (
-                conversaciones.map((conv) => (
-                  <TouchableOpacity
+                conversaciones.map((conv, index) => (
+                  <SwipeableConversationItem
                     key={conv.id}
-                    style={[styles.conversationItem, conversacionActual === conv.id && styles.conversationItemActive]}
-                    onPress={() => { cargarMensajesConversacion(conv.id); setModalHistorial(false); }}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.conversationIcon}>
-                      <Ionicons name="chatbubbles" size={20} color="#666" />
-                    </View>
-                    <View style={styles.conversationInfo}>
-                      <Text style={styles.conversationName}>{conv.nombre}</Text>
-                      <Text style={styles.conversationDate}>
-                        {conv.fecha.toLocaleDateString("es-ES")} - {conv.mensajes.length} mensajes
-                      </Text>
-                    </View>
-                    {conversacionActual === conv.id && <Ionicons name="checkmark-circle" size={24} color="#10B981" />}
-                  </TouchableOpacity>
+                    conversation={conv}
+                    isActive={conversacionActual === conv.id}
+                    onPress={() => {
+                      cargarMensajesConversacion(conv.id);
+                      setModalHistorial(false);
+                    }}
+                    onDelete={() => eliminarConversacion(conv.id)}
+                    showTutorial={index === 0 && conversaciones.length === 1}
+                  />
                 ))
               )}
             </ScrollView>
@@ -809,7 +1250,6 @@ IMPORTANTE:
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   container: {
@@ -822,28 +1262,34 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FAFAFA",
   },
-  notLoggedContainer: { 
-    flex: 1, 
+  loadingText: {
+    marginTop: 16,
+    fontSize: 14,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "#666",
+  },
+  notLoggedContainer: {
+    flex: 1,
     backgroundColor: "#000",
   },
   videoBackground: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     width: width,
     height: height,
   },
   videoOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   notLoggedContent: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingBottom: 40,
     paddingTop: 80,
   },
@@ -851,18 +1297,18 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(255,255,255,0.15)",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
+    borderColor: "rgba(255,255,255,0.3)",
   },
   notLoggedTitle: {
     fontSize: 32,
     fontFamily: "PlayfairDisplay_700Bold",
     color: "#fff",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 8,
     letterSpacing: 0.5,
   },
@@ -870,19 +1316,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: "PlayfairDisplay_400Regular",
     color: "rgba(255,255,255,0.8)",
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 40,
     letterSpacing: 0.5,
   },
   carouselContainer: {
-    height: 160, 
-    width: '100%',
+    height: 160,
+    width: "100%",
     marginBottom: 20,
   },
   carouselItem: {
     width: width,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 40,
   },
   carouselIconContainer: {
@@ -896,9 +1342,9 @@ const styles = StyleSheet.create({
     lineHeight: 26,
   },
   paginationContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 10,
   },
   paginationDot: {
@@ -908,18 +1354,18 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   paginationDotActive: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     width: 10,
     height: 10,
   },
   paginationDotInactive: {
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    backgroundColor: "rgba(255,255,255,0.3)",
   },
   loginPrompt: {
     fontSize: 12,
     fontFamily: "PlayfairDisplay_400Regular",
     color: "rgba(255,255,255,0.6)",
-    textAlign: 'center',
+    textAlign: "center",
     marginTop: 20,
     marginBottom: 20,
     paddingHorizontal: 40,
@@ -928,9 +1374,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === "ios" ? 70 : 65,
-    paddingBottom: 15,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 70 : 40,
+    paddingBottom: 10,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
@@ -950,16 +1396,36 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   headerSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontFamily: "PlayfairDisplay_400Regular",
     color: "#666",
     marginTop: 2,
     letterSpacing: 0.3,
   },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 6,
+  },
+  refreshButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  newChatButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   historyButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#f5f5f5",
     justifyContent: "center",
     alignItems: "center",
@@ -967,12 +1433,9 @@ const styles = StyleSheet.create({
   messagesContainer: {
     flex: 1,
   },
-  messagesList: {
-    padding: 20,
-  },
   messageContainer: {
     flexDirection: "row",
-    marginBottom: 20,
+    marginBottom: 16,
     alignItems: "flex-start",
   },
   userMessageContainer: {
@@ -1028,22 +1491,8 @@ const styles = StyleSheet.create({
   aiMessageText: {
     color: "#1a1a1a",
   },
-  timestamp: {
-    fontSize: 10,
-    marginTop: 8,
-    fontFamily: "PlayfairDisplay_400Regular",
-  },
-  userTimestamp: {
-    color: "rgba(255,255,255,0.6)",
-    textAlign: "right",
-  },
-  aiTimestamp: {
-    color: "#999",
-    textAlign: "left",
-  },
   productosContainer: {
-    marginTop: 12,
-    gap: 10,
+    marginTop: 16,
   },
   productCard: {
     flexDirection: "row",
@@ -1057,10 +1506,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 4,
     elevation: 2,
+    marginBottom: 10,
+    alignItems: "center",
   },
   productImage: {
-    width: 80,
-    height: 80,
+    width: 90,
+    height: 90,
     backgroundColor: "#f5f5f5",
   },
   productInfo: {
@@ -1080,39 +1531,44 @@ const styles = StyleSheet.create({
     fontFamily: "PlayfairDisplay_600SemiBold",
     color: "#000",
     marginTop: 2,
-    marginBottom: 4,
+    marginBottom: 6,
+  },
+  productDetails: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   productPrice: {
     fontSize: 16,
     fontFamily: "PlayfairDisplay_700Bold",
     color: "#000",
   },
-  stockBadge: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    backgroundColor: "#10B981",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  stockText: {
+  productType: {
     fontSize: 10,
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    color: "#fff",
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "#999",
+    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
+  productArrow: {
+    paddingRight: 12,
+  },
+  // ✅ CAMBIO: Input ahora con position absolute
   inputContainer: {
+    position: "absolute",
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 100 : 80,
+    paddingBottom: Platform.OS === "ios" ? 12 : 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 4,
+    elevation: 5,
   },
   inputWrapper: {
     flexDirection: "row",
@@ -1164,7 +1620,25 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  // ✅ ESTILOS DEL INDICADOR DE ESCRITURA
+  // ✅ NUEVO: Botón flotante scroll to bottom
+  scrollToBottomButton: {
+  position: "absolute",
+  right: width / 2 - 16,  // ✅ Centrado
+  bottom: 150,
+  width: 32,              // ✅ Muy pequeño
+  height: 32,
+  borderRadius: 16,
+  backgroundColor: "#000",
+  justifyContent: "center",
+  alignItems: "center",
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.25,
+  shadowRadius: 4,
+  elevation: 4,
+  zIndex: 999,
+},
+
   typingContainer: {
     flexDirection: "row",
     marginBottom: 20,
@@ -1224,15 +1698,40 @@ const styles = StyleSheet.create({
     maxHeight: height * 0.6,
   },
   emptyHistory: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 60,
   },
   emptyHistoryText: {
     fontSize: 16,
-    fontFamily: "PlayfairDisplay_400Regular",
+    fontFamily: "PlayfairDisplay_600SemiBold",
     color: "#999",
     marginTop: 16,
+  },
+  emptyHistorySubtext: {
+    fontSize: 13,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "#ccc",
+    marginTop: 8,
+  },
+  swipeableConversationContainer: {
+    marginBottom: 12,
+    position: "relative",
+  },
+  deleteBackground: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 100,
+    backgroundColor: "#EF4444",
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  conversationItemAnimated: {
+    backgroundColor: "#fff",
+    borderRadius: 12,
   },
   conversationItem: {
     flexDirection: "row",
@@ -1242,7 +1741,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#f0f0f0",
-    marginBottom: 12,
   },
   conversationItemActive: {
     backgroundColor: "#f0fdf4",

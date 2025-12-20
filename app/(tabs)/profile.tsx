@@ -667,21 +667,33 @@ export default function ProfileScreen() {
               <View style={styles.inputRow}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
                   <Text style={styles.inputLabel}>Nombre *</Text>
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Ingresa tu nombre" 
-                    value={nombre} 
-                    onChangeText={setNombre} 
-                  />
+                 <TextInput
+  style={styles.input}
+  placeholder="Ingresa tu nombre"
+  value={nombre}
+  onChangeText={setNombre}
+  onFocus={() => {
+    if (nombre === "Cliente") {
+      setNombre("");
+    }
+  }}
+/>
+
                 </View>
                 <View style={[styles.inputGroup, { flex: 1 }]}>
                   <Text style={styles.inputLabel}>Apellido *</Text>
-                  <TextInput 
-                    style={styles.input} 
-                    placeholder="Ingresa tu apellido" 
-                    value={apellido} 
-                    onChangeText={setApellido} 
-                  />
+                 <TextInput
+  style={styles.input}
+  placeholder="Ingresa tu apellido"
+  value={apellido}
+  onChangeText={setApellido}
+  onFocus={() => {
+    if (apellido === "Nuevo") {
+      setApellido("");
+    }
+  }}
+/>
+
                 </View>
               </View>
 

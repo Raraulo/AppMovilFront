@@ -23,7 +23,7 @@ import { useApi } from "../../contexts/ApiContext";
 
 const { width, height } = Dimensions.get("window");
 
-// ✨ COMPONENTE TOAST FLOTANTE
+// COMPONENTE TOAST FLOTANTE
 interface ToastProps {
   visible: boolean;
   message: string;
@@ -215,85 +215,182 @@ export default function LoginScreen() {
 
   const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
     if (Platform.OS === 'ios' || Platform.OS === 'android') {
-      Vibration.vibrate(type === 'error' ? 100 : 50);
+      Vibration.vibrate(type === 'error' ? [0, 100, 50, 100] : 50);
     }
     setToast({ visible: true, message, type });
   };
 
+  // VALIDACIÓN DE EMAIL
+  const validateEmail = (email: string): boolean => {
+    const emailRegex = /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    return emailRegex.test(email);
+  };
+
+  // ANALIZAR MENSAJES DE ERROR DEL BACKEND
+  const analyzeErrorMessage = (status: number, data: any): { message: string; type: 'error' | 'warning' } => {
+    console.log('Analizando error:', { status, data });
+
+    // Helper: convertir array o string a string
+    const toString = (value: any): string => {
+      if (Array.isArray(value)) {
+        return value.join(', ').toLowerCase();
+      }
+      return (value || '').toString().toLowerCase();
+    };
+
+    // Verificar código específico del backend
+    const code = toString(data?.code);
+    if (code.includes('user_not_found')) {
+      return { message: 'Este correo no está registrado', type: 'error' };
+    }
+    
+    if (code.includes('invalid_password')) {
+      return { message: 'Contraseña incorrecta', type: 'error' };
+    }
+
+    // Verificar mensajes en el detail
+    const errorText = toString(data?.detail);
+
+    if (errorText.includes('no está registrado') || errorText.includes('not found')) {
+      return { message: 'Este correo no está registrado', type: 'error' };
+    }
+
+    if (errorText.includes('contraseña incorrecta') || errorText.includes('password')) {
+      return { message: 'Contraseña incorrecta', type: 'error' };
+    }
+
+    if (errorText.includes('inactiv')) {
+      return { message: 'Tu cuenta está inactiva. Verifica tu email', type: 'warning' };
+    }
+
+    if (errorText.includes('block') || errorText.includes('bloqueada')) {
+      return { message: 'Tu cuenta ha sido bloqueada', type: 'error' };
+    }
+
+    // Errores por status code
+    if (status === 429) {
+      return { message: 'Demasiados intentos. Espera unos minutos', type: 'warning' };
+    }
+
+    if (status >= 500) {
+      return { message: 'Error del servidor. Intenta más tarde', type: 'error' };
+    }
+
+    // Mensaje del servidor si existe (extraer del array si es necesario)
+    if (data?.detail) {
+      const detailMessage = Array.isArray(data.detail) ? data.detail[0] : data.detail;
+      return { message: detailMessage, type: 'error' };
+    }
+
+    if (data?.error) {
+      const errorMessage = Array.isArray(data.error) ? data.error[0] : data.error;
+      return { message: errorMessage, type: 'error' };
+    }
+
+    // Mensaje genérico
+    return { message: 'Error al iniciar sesión. Intenta nuevamente', type: 'error' };
+  };
+
   const handleLogin = async () => {
-    // Validaciones
-    if (!email.trim() || !password.trim()) {
+    // VALIDACIÓN 1: Campos vacíos
+    if (!email.trim() && !password.trim()) {
       showToast('Por favor completa todos los campos', 'warning');
       return;
     }
 
-    // Validar formato de email
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      showToast('Formato de correo inválido', 'error');
+    if (!email.trim()) {
+      showToast('Por favor ingresa tu correo electrónico', 'warning');
+      return;
+    }
+
+    if (!password.trim()) {
+      showToast('Por favor ingresa tu contraseña', 'warning');
+      return;
+    }
+
+    // VALIDACIÓN 2: Formato de email
+    if (!validateEmail(email.trim())) {
+      showToast('El formato del correo es inválido', 'error');
+      return;
+    }
+
+    // VALIDACIÓN 3: Longitud mínima de contraseña
+    if (password.length < 6) {
+      showToast('La contraseña debe tener al menos 6 caracteres', 'warning');
       return;
     }
 
     setIsLoading(true);
 
     try {
-      console.log('🔐 Intentando login...');
+      console.log('Intentando login con:', email.toLowerCase().trim());
       
       const res = await fetch(`${apiUrl}/api/login/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({ 
+          email: email.toLowerCase().trim(), 
+          password: password 
+        }),
       });
 
-      const data = await res.json();
-      console.log('📡 Respuesta del servidor:', res.status);
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseError) {
+        console.error('Error parseando respuesta:', parseError);
+        showToast('Error en la respuesta del servidor', 'error');
+        return;
+      }
 
+      console.log('Respuesta del servidor:', { status: res.status, data });
+
+      // LOGIN EXITOSO
       if (res.ok && data.access) {
-        // Login exitoso
-        await AsyncStorage.setItem("token", data.access);
-        await AsyncStorage.setItem("user", JSON.stringify(data));
-        await AsyncStorage.setItem("showWelcome", "true");
-        await AsyncStorage.setItem("username", data.username || "usuario");
-
+        showToast('Inicio de sesión exitoso', 'success');
         
+        await AsyncStorage.multiSet([
+          ["token", data.access],
+          ["user", JSON.stringify(data)],
+          ["showWelcome", "true"],
+          ["username", data.username || data.email?.split('@')[0] || "usuario"]
+        ]);
+
         setTimeout(() => {
           router.replace("/(tabs)");
         }, 1000);
-      } else {
-        // Errores específicos
-        if (res.status === 401) {
-          showToast('Contraseña incorrecta', 'error');
-        } else if (res.status === 404 || data.detail?.includes('No active account')) {
-          showToast('Este correo no está registrado', 'error');
-        } else if (data.detail) {
-          showToast(data.detail, 'error');
-
-        } else {
-          showToast('Credenciales incorrectas', 'error');
-        }
+        return;
       }
+
+      // ANALIZAR ERROR Y MOSTRAR MENSAJE ESPECÍFICO
+      const { message, type } = analyzeErrorMessage(res.status, data);
+      showToast(message, type);
+
     } catch (error: any) {
       console.error('Error de login:', error);
       
-      // Detectar problemas de red
-      if (error.message === 'Network request failed' || 
-          error.message.includes('fetch') ||
-          error.message.includes('timeout')) {
-        showToast('Sin conexión a internet. Verifica tu red', 'error');
+      if (error.message === 'Network request failed') {
+        showToast('Sin conexión a internet', 'error');
+      } else if (error.message?.includes('timeout')) {
+        showToast('Tiempo de espera agotado. Intenta nuevamente', 'error');
+      } else if (error.message?.includes('fetch')) {
+        showToast('No se pudo conectar al servidor', 'error');
       } else {
-        showToast('Error de conexión con el servidor', 'error');
+        showToast('Error inesperado. Verifica tu conexión', 'error');
       }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // ✅ CERRAR TODA SESIÓN AL ENTRAR COMO INVITADO
+  // CERRAR TODA SESIÓN AL ENTRAR COMO INVITADO
   const handleGuestAccess = async () => {
     try {
-      console.log('🔓 Cerrando todas las sesiones activas...');
+      console.log('Cerrando todas las sesiones activas');
       
-      // Limpiar TODA la sesión anterior
       await AsyncStorage.multiRemove([
         "user",
         "token",
@@ -308,11 +405,12 @@ export default function LoginScreen() {
         "notification_dismissed",
       ]);
       
-      // Configurar sesión de invitado
-      await AsyncStorage.setItem("showWelcome", "true");
-      await AsyncStorage.setItem("username", "Invitado");
+      await AsyncStorage.multiSet([
+        ["showWelcome", "true"],
+        ["username", "Invitado"]
+      ]);
       
-      showToast('Entrando como invitado...', 'info');
+      showToast('Entrando como invitado', 'info');
       
       setTimeout(() => {
         router.replace("/(tabs)");
@@ -331,7 +429,7 @@ export default function LoginScreen() {
     outputRange: ['0deg', '360deg'],
   });
 
-  // ✅ Splash Screen
+  // Splash Screen
   if (showSplash) {
     return (
       <Animated.View style={[styles.splashContainer, { opacity: finalFadeOut }]}>
@@ -364,7 +462,7 @@ export default function LoginScreen() {
     );
   }
 
-  // ✅ Login Form
+  // Login Form
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -403,7 +501,9 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
             editable={!isLoading}
+            maxLength={100}
           />
 
           <View style={styles.passwordContainer}>
@@ -415,24 +515,35 @@ export default function LoginScreen() {
               onChangeText={setPassword}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
+              autoCorrect={false}
               editable={!isLoading}
+              maxLength={128}
             />
             <TouchableOpacity
               onPress={() => setShowPassword(!showPassword)}
               style={styles.eyeIcon}
               activeOpacity={0.7}
+              disabled={isLoading}
             >
               <Ionicons
                 name={showPassword ? "eye-off-outline" : "eye-outline"}
                 size={22}
-                color="#4A4A4A"
+                color={isLoading ? "#D0D0D0" : "#4A4A4A"}
               />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity onPress={goToRecovery} activeOpacity={0.7}>
-            <Text style={styles.link}>¿Olvidaste tu contraseña?</Text>
+          {/* COMENTADO TEMPORALMENTE - Recuperación de contraseña
+          <TouchableOpacity 
+            onPress={goToRecovery} 
+            activeOpacity={0.7}
+            disabled={isLoading}
+          >
+            <Text style={[styles.link, isLoading && { color: '#D0D0D0' }]}>
+              ¿Olvidaste tu contraseña?
+            </Text>
           </TouchableOpacity>
+          */}
 
           <TouchableOpacity 
             style={[styles.button, isLoading && styles.buttonDisabled]} 
@@ -448,19 +559,32 @@ export default function LoginScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.button, styles.guestButton]}
+            style={[styles.button, styles.guestButton, isLoading && styles.guestButtonDisabled]}
             onPress={handleGuestAccess}
             disabled={isLoading}
             activeOpacity={0.85}
           >
-            <Ionicons name="person-outline" size={20} color="#121212" style={{ marginRight: 8 }} />
-            <Text style={styles.guestButtonText}>Entrar como Invitado</Text>
+            <Ionicons 
+              name="person-outline" 
+              size={20} 
+              color={isLoading ? "#D0D0D0" : "#121212"} 
+              style={{ marginRight: 8 }} 
+            />
+            <Text style={[styles.guestButtonText, isLoading && { color: '#D0D0D0' }]}>
+              Entrar como Invitado
+            </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={goToRegister} activeOpacity={0.7}>
-            <Text style={styles.registerLink}>
+          <TouchableOpacity 
+            onPress={goToRegister} 
+            activeOpacity={0.7}
+            disabled={isLoading}
+          >
+            <Text style={[styles.registerLink, isLoading && { color: '#D0D0D0' }]}>
               ¿No tienes cuenta?{" "}
-              <Text style={styles.registerLinkBold}>Regístrate</Text>
+              <Text style={[styles.registerLinkBold, isLoading && { color: '#888' }]}>
+                Regístrate
+              </Text>
             </Text>
           </TouchableOpacity>
         </Animated.View>
@@ -593,6 +717,9 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#121212",
     marginTop: 10,
+  },
+  guestButtonDisabled: {
+    borderColor: "#D0D0D0",
   },
   guestButtonText: { color: "#121212", fontWeight: "700", fontSize: 16 },
   registerLink: {

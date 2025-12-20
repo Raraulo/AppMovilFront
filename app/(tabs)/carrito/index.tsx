@@ -1,8 +1,9 @@
 // app/(tabs)/carrito/index.tsx
 import { Ionicons } from "@expo/vector-icons";
+
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
-import { LinearGradient } from 'expo-linear-gradient';
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect } from "expo-router";
 import { collection, doc, runTransaction } from "firebase/firestore";
 import React, { useCallback, useEffect, useRef, useState } from "react";
@@ -11,7 +12,6 @@ import {
   Animated,
   Dimensions,
   Easing,
-  FlatList,
   Image,
   KeyboardAvoidingView,
   Modal,
@@ -36,68 +36,89 @@ import {
 } from "../../../utils/storage";
 
 const { width, height } = Dimensions.get("window");
+const HEADER_HEIGHT = Platform.OS === "ios" ? 130 : 115;
 
-// 🎨 TIPOGRAFÍA PREMIUM NATIVA
-const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
-const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
-const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
+// TIPOGRAFÍA PREMIUM NATIVA
+const FONT_TITLE = Platform.OS === "ios" ? "Didot" : "serif";
+const FONT_BODY = Platform.OS === "ios" ? "Georgia" : "serif";
+const FONT_MODERN = Platform.OS === "ios" ? "Helvetica Neue" : "sans-serif";
 
-// ✅ COLORES SINCRONIZADOS CON MISTARJETAS.TSX
+// COLORES SINCRONIZADOS CON MISTARJETAS.TSX
 const CARD_COLORS = [
-  ['#0f172a', '#1e293b', '#334155'],
-  ['#1e1b4b', '#312e81', '#4c1d95'],
-  ['#1f2937', '#374151', '#4b5563'],
-  ['#7c2d12', '#9a3412', '#c2410c'],
-  ['#064e3b', '#065f46', '#047857'],
-  ['#4c1d95', '#5b21b6', '#6d28d9'],
+  ["#0f172a", "#1e293b", "#334155"],
+  ["#1e1b4b", "#312e81", "#4c1d95"],
+  ["#1f2937", "#374151", "#4b5563"],
+  ["#7c2d12", "#9a3412", "#c2410c"],
+  ["#064e3b", "#065f46", "#047857"],
+  ["#4c1d95", "#5b21b6", "#6d28d9"],
 ];
 
-// ==================== ANIMACIÓN "ENVIANDO DINERO" (BILLETE) ====================
+// ANIMACIÓN ENVIANDO DINERO (BILLETE)
 const SendingMoneyOverlay = ({ visible }: { visible: boolean }) => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(50)).current;
   const scaleAnim = useRef(new Animated.Value(0.8)).current;
   const rippleAnim = useRef(new Animated.Value(0)).current;
-  const billTranslateY = useRef(new Animated.Value(0)).current; // 💵 Animación billete
+  const billTranslateY = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (visible) {
-      // Aparecer
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.spring(translateY, { toValue: 0, friction: 6, useNativeDriver: true }),
-        Animated.spring(scaleAnim, { toValue: 1, friction: 6, useNativeDriver: true }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.spring(translateY, {
+          toValue: 0,
+          friction: 6,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          friction: 6,
+          useNativeDriver: true,
+        }),
       ]).start();
 
-      // Bucle de "onda"
       Animated.loop(
         Animated.sequence([
-          Animated.timing(rippleAnim, { toValue: 1, duration: 1500, easing: Easing.out(Easing.ease), useNativeDriver: true }),
-          Animated.timing(rippleAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
+          Animated.timing(rippleAnim, {
+            toValue: 1,
+            duration: 1500,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(rippleAnim, {
+            toValue: 0,
+            duration: 0,
+            useNativeDriver: true,
+          }),
         ])
       ).start();
 
-      // 💵 Bucle del billete entrando y saliendo (como en un cajero)
       Animated.loop(
         Animated.sequence([
-          Animated.timing(billTranslateY, { 
-            toValue: -40, 
-            duration: 800, 
-            easing: Easing.out(Easing.ease), 
-            useNativeDriver: true 
+          Animated.timing(billTranslateY, {
+            toValue: -40,
+            duration: 800,
+            easing: Easing.out(Easing.ease),
+            useNativeDriver: true,
           }),
-          Animated.timing(billTranslateY, { 
-            toValue: 0, 
-            duration: 800, 
+          Animated.timing(billTranslateY, {
+            toValue: 0,
+            duration: 800,
             easing: Easing.in(Easing.ease),
-            useNativeDriver: true 
+            useNativeDriver: true,
           }),
         ])
       ).start();
-
     } else {
-      // Desaparecer
-      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
       translateY.setValue(50);
       scaleAnim.setValue(0.8);
     }
@@ -108,36 +129,70 @@ const SendingMoneyOverlay = ({ visible }: { visible: boolean }) => {
   return (
     <Modal transparent visible={visible} animationType="none">
       <View style={styles.sendingOverlay}>
-        <Animated.View style={[styles.sendingContainer, { opacity: fadeAnim, transform: [{ translateY }, { scale: scaleAnim }] }]}>
-          {/* Círculo con icono */}
+        <Animated.View
+          style={[
+            styles.sendingContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY }, { scale: scaleAnim }],
+            },
+          ]}
+        >
           <View style={styles.sendingIconCircle}>
             <Animated.View
               style={[
                 styles.sendingRipple,
                 {
-                  transform: [{ scale: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [1, 2.5] }) }],
-                  opacity: rippleAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] }),
+                  transform: [
+                    {
+                      scale: rippleAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 2.5],
+                      }),
+                    },
+                  ],
+                  opacity: rippleAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.6, 0],
+                  }),
                 },
               ]}
             />
-            {/* 💵 BILLETE ANIMADO */}
-            <View style={{ overflow: 'hidden', width: 80, height: 80, justifyContent: 'center', alignItems: 'center' }}>
-               <Animated.View style={{ transform: [{ translateY: billTranslateY }] }}>
-                  <Ionicons name="cash" size={50} color="#fff" />
-               </Animated.View>
+            <View
+              style={{
+                overflow: "hidden",
+                width: 80,
+                height: 80,
+                justifyContent: "center",
+                alignItems: "center",
+              }}
+            >
+              <Animated.View
+                style={{ transform: [{ translateY: billTranslateY }] }}
+              >
+                <Ionicons name="cash" size={50} color="#fff" />
+              </Animated.View>
             </View>
           </View>
-          
-          <Text style={styles.sendingTitle}>Procesando pago...</Text>
-          <Text style={styles.sendingSubtitle}>Confirmando transacción segura</Text>
-          <ActivityIndicator size="small" color="rgba(255,255,255,0.5)" style={{ marginTop: 20 }} />
+
+          <View>
+            <Text style={styles.sendingTitle}>Procesando pago...</Text>
+            <Text style={styles.sendingSubtitle}>
+              Confirmando transacción segura
+            </Text>
+            <ActivityIndicator
+              size="small"
+              color="rgba(255,255,255,0.5)"
+              style={{ marginTop: 20 }}
+            />
+          </View>
         </Animated.View>
       </View>
     </Modal>
   );
 };
 
-// ==================== MODAL DE CONFIRMACIÓN ====================
+// MODAL DE CONFIRMACIÓN
 interface ConfirmModalProps {
   visible: boolean;
   onConfirm: () => void;
@@ -186,7 +241,12 @@ const ConfirmModal = ({
   if (!visible) return null;
 
   return (
-    <Modal transparent visible={visible} animationType="none" onRequestClose={onCancel}>
+    <Modal
+      transparent
+      visible={visible}
+      animationType="none"
+      onRequestClose={onCancel}
+    >
       <TouchableOpacity
         activeOpacity={1}
         onPress={showCancel ? onCancel : undefined}
@@ -195,15 +255,20 @@ const ConfirmModal = ({
         <Animated.View
           style={[
             styles.confirmModalContainer,
-            { opacity: opacityAnim, transform: [{ scale: scaleAnim }] }
+            {
+              opacity: opacityAnim,
+              transform: [{ scale: scaleAnim }],
+            },
           ]}
         >
           <TouchableOpacity activeOpacity={1}>
             <View style={styles.confirmIconCircle}>
               <Ionicons name="cart-outline" size={48} color="#111" />
             </View>
+
             <Text style={styles.confirmTitle}>{title}</Text>
             <Text style={styles.confirmMessage}>{message}</Text>
+
             <View style={styles.confirmButtons}>
               <TouchableOpacity
                 style={styles.confirmConfirmButton}
@@ -215,6 +280,7 @@ const ConfirmModal = ({
               >
                 <Text style={styles.confirmConfirmText}>{confirmText}</Text>
               </TouchableOpacity>
+
               {showCancel && (
                 <TouchableOpacity
                   style={styles.confirmCancelButton}
@@ -232,7 +298,7 @@ const ConfirmModal = ({
   );
 };
 
-// ==================== TOAST ====================
+// TOAST
 const Toast = ({ visible, message, type = "success", onHide }: any) => {
   const translateY = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -265,9 +331,8 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
             duration: 200,
             useNativeDriver: true,
           }),
-        ]).start(() => {
-          if (onHide) onHide();
-        });
+        ]).start();
+        if (onHide) onHide();
       }, 3000);
     }
   }, [visible]);
@@ -296,14 +361,14 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
       ]}
     >
       <View style={styles.toastContent}>
-        <Ionicons name={icon} size={22} color="#fff" />
+        <Ionicons name={icon} size={24} color="#fff" />
         <Text style={styles.toastText}>{message}</Text>
       </View>
     </Animated.View>
   );
 };
 
-// ✨ NOTIFICACIÓN DE PERFIL INCOMPLETO
+// NOTIFICACIÓN DE PERFIL INCOMPLETO
 const IncompleteProfileNotification = ({ visible, onClose, onUpdate }: any) => {
   const translateY = useRef(new Animated.Value(-150)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -345,14 +410,11 @@ const IncompleteProfileNotification = ({ visible, onClose, onUpdate }: any) => {
     <Animated.View
       style={[
         styles.incompleteNotificationContainer,
-        {
-          opacity,
-          transform: [{ translateY }],
-        },
+        { opacity, transform: [{ translateY }] },
       ]}
     >
       <LinearGradient
-        colors={['#EF4444', '#DC2626']}
+        colors={["#EF4444", "#DC2626"]}
         style={styles.incompleteNotificationGradient}
       >
         <View style={styles.incompleteNotificationContent}>
@@ -360,26 +422,34 @@ const IncompleteProfileNotification = ({ visible, onClose, onUpdate }: any) => {
             <Ionicons name="warning" size={28} color="#fff" />
           </View>
           <View style={styles.incompleteNotificationTextContainer}>
-            <Text style={styles.incompleteNotificationTitle}>Perfil incompleto</Text>
+            <Text style={styles.incompleteNotificationTitle}>
+              Perfil incompleto
+            </Text>
             <Text style={styles.incompleteNotificationMessage}>
               Completa tus datos personales para continuar
             </Text>
           </View>
         </View>
+
         <View style={styles.incompleteNotificationActions}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.incompleteNotificationButtonSecondary}
             onPress={onClose}
             activeOpacity={0.8}
           >
-            <Text style={styles.incompleteNotificationButtonSecondaryText}>Cerrar</Text>
+            <Text style={styles.incompleteNotificationButtonSecondaryText}>
+              Cerrar
+            </Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.incompleteNotificationButtonPrimary}
             onPress={onUpdate}
             activeOpacity={0.8}
           >
-            <Text style={styles.incompleteNotificationButtonPrimaryText}>Completar ahora</Text>
+            <Text style={styles.incompleteNotificationButtonPrimaryText}>
+              Completar ahora
+            </Text>
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -387,24 +457,26 @@ const IncompleteProfileNotification = ({ visible, onClose, onUpdate }: any) => {
   );
 };
 
-// ==================== COMPONENTE PRINCIPAL ====================
+// COMPONENTE PRINCIPAL
 export default function CarritoScreen() {
   const apiUrl = useApi();
-
   const [cart, setCart] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [isLogged, setIsLogged] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
-  const [sendingMoney, setSendingMoney] = useState(false); // ✨ Animación envío
+  const [sendingMoney, setSendingMoney] = useState(false);
   const [tarjetaWawallet, setTarjetaWawallet] = useState<Card | null>(null);
   const [loadingTarjeta, setLoadingTarjeta] = useState(false);
-  const [toast, setToast] = useState({ visible: false, message: "", type: "success" });
-
+  const [toast, setToast] = useState({
+    visible: false,
+    message: "",
+    type: "success",
+  });
   const [clienteData, setClienteData] = useState<any>(null);
-  const [showIncompleteNotification, setShowIncompleteNotification] = useState(false);
-
+  const [showIncompleteNotification, setShowIncompleteNotification] =
+    useState(false);
   const [confirmModal, setConfirmModal] = useState({
     visible: false,
     title: "",
@@ -448,40 +520,34 @@ export default function CarritoScreen() {
       if (isLogged) loadCart();
     };
     storageEvents.on("cartChanged", handleCartChange);
-    return () => {
-      storageEvents.off("cartChanged", handleCartChange);
-    };
+    return () => storageEvents.off("cartChanged", handleCartChange);
   }, [isLogged]);
 
   useFocusEffect(
     useCallback(() => {
       if (isLogged) {
         loadClienteData();
-      }
-      if (modalVisible) {
-        loadTarjetaWawallet();
+        if (modalVisible) {
+          loadTarjetaWawallet();
+        }
       }
     }, [modalVisible, isLogged])
   );
 
   useEffect(() => {
     const handleCardsChanged = () => {
-      if (modalVisible) {
-        loadTarjetaWawallet();
-      }
+      if (modalVisible) loadTarjetaWawallet();
     };
-
     const handleActiveCardChanged = () => {
-      if (modalVisible) {
-        loadTarjetaWawallet();
-      }
+      if (modalVisible) loadTarjetaWawallet();
     };
 
-    storageEvents.on('cardsChanged', handleCardsChanged);
-    storageEvents.on('activeCardChanged', handleActiveCardChanged);
+    storageEvents.on("cardsChanged", handleCardsChanged);
+    storageEvents.on("activeCardChanged", handleActiveCardChanged);
+
     return () => {
-      storageEvents.off('cardsChanged', handleCardsChanged);
-      storageEvents.off('activeCardChanged', handleActiveCardChanged);
+      storageEvents.off("cardsChanged", handleCardsChanged);
+      storageEvents.off("activeCardChanged", handleActiveCardChanged);
     };
   }, [modalVisible]);
 
@@ -504,9 +570,10 @@ export default function CarritoScreen() {
       if (!storedUser) return;
 
       const userData = JSON.parse(storedUser);
-
       const res = await fetch(`${apiUrl}/api/clientes/`, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+        },
       });
 
       if (!res.ok) return;
@@ -526,7 +593,6 @@ export default function CarritoScreen() {
     if (!clienteData) return false;
 
     const camposFaltantes = [];
-    
     if (!clienteData.nombre?.trim() || clienteData.nombre?.trim() === "Cliente") {
       camposFaltantes.push("nombre");
     }
@@ -550,7 +616,6 @@ export default function CarritoScreen() {
     setLoadingTarjeta(true);
     try {
       const activeCard = await getActiveCard();
-      
       if (activeCard) {
         setTarjetaWawallet(activeCard);
       } else {
@@ -576,11 +641,32 @@ export default function CarritoScreen() {
 
   const calcularTotal = () =>
     cart
-      .reduce(
-        (acc, item) => acc + Number(item.precio || 0) * (item.cantidad || 1),
-        0
-      )
+      .reduce((acc, item) => acc + Number(item.precio || 0) * (item.cantidad || 1), 0)
       .toFixed(2);
+
+  // ✅ NUEVA FUNCIÓN: Calcular descuento del 15%
+  const calcularDescuento = () => {
+    const subtotal = parseFloat(calcularTotal());
+    const UMBRAL_DESCUENTO = 500;
+    const PORCENTAJE_DESCUENTO = 0.15;
+
+    if (subtotal >= UMBRAL_DESCUENTO) {
+      const descuento = subtotal * PORCENTAJE_DESCUENTO;
+      return {
+        tieneDescuento: true,
+        subtotal: subtotal,
+        descuento: descuento,
+        total: subtotal - descuento,
+      };
+    }
+
+    return {
+      tieneDescuento: false,
+      subtotal: subtotal,
+      descuento: 0,
+      total: subtotal,
+    };
+  };
 
   const aumentarCantidad = async (id: number) => {
     const item = cart.find((i) => i.id === id);
@@ -590,10 +676,7 @@ export default function CarritoScreen() {
     const nuevaCantidad = (item.cantidad || 1) + 1;
 
     if (nuevaCantidad > stockDisponible) {
-      showToast(
-        `Solo hay ${stockDisponible} unidades disponibles`,
-        "error"
-      );
+      showToast(`Solo hay ${stockDisponible} unidades disponibles`, "error");
       return;
     }
 
@@ -631,6 +714,7 @@ export default function CarritoScreen() {
 
   const startSuccessAnimation = () => {
     setShowSuccessAnimation(true);
+
     successOpacity.setValue(0);
     successScale.setValue(0.5);
     checkScale.setValue(0);
@@ -716,265 +800,309 @@ export default function CarritoScreen() {
         toValue: 0,
         duration: 400,
         useNativeDriver: true,
-      }).start(() => {
-        setShowSuccessAnimation(false);
-      });
+      }).start();
+      setShowSuccessAnimation(false);
     }, 3500);
   };
 
-  // ✅ FUNCIÓN DE PAGO COMPLETA
-  const procesarPagoWawallet = async () => {
-    if (processing) return;
+
+const procesarPagoWawallet = async () => {
+  console.log('🔵 [INICIO] Iniciando proceso de pago');
+  
+  if (processing) {
+    console.log('⚠️ [BLOQUEADO] Ya hay un proceso en curso');
+    return;
+  }
+
+  if (!tarjetaWawallet) {
+    console.log('❌ [ERROR] No hay tarjeta seleccionada');
+    showToast("No hay tarjeta seleccionada", "error");
+    return;
+  }
+
+  const resultado = calcularDescuento();
+  console.log('💰 [DESCUENTO] Resultado:', resultado);
+  
+  const total = resultado.total;
+  const TARJETA_DESTINO = "9375021914180118";
+
+  try {
+    setProcessing(true);
+    setSendingMoney(true);
+    console.log('🟢 [ESTADO] Processing: true, SendingMoney: true');
+
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    const userStr = await AsyncStorage.getItem("user");
+    if (!userStr) {
+      console.log('❌ [ERROR] Usuario no encontrado en AsyncStorage');
+      throw new Error("Usuario no encontrado");
+    }
+
+    const userData = JSON.parse(userStr);
+    console.log('👤 [USER] Email:', userData.email);
+
+    // ✅ USAR SDK DE FIRESTORE EN LUGAR DE REST API
+    console.log('🔍 [FIRESTORE] Buscando tarjetas en Firebase con SDK...');
     
-    if (!tarjetaWawallet) {
-      showToast("No hay tarjeta seleccionada", "error");
+    const { collection: firestoreCollection, query, where, getDocs } = await import('firebase/firestore');
+    
+    const usuariosRef = firestoreCollection(db, 'usuarios');
+    
+    // Query para el usuario
+    const userQuery = query(
+      usuariosRef,
+      where('tarjeta.numero', '==', tarjetaWawallet.numero)
+    );
+    
+    // Query para el destino
+    const destinoQuery = query(
+      usuariosRef,
+      where('tarjeta.numero', '==', TARJETA_DESTINO)
+    );
+
+    console.log('📥 [FIRESTORE] Ejecutando queries en paralelo...');
+    
+    const [userSnapshot, destinoSnapshot] = await Promise.all([
+      getDocs(userQuery),
+      getDocs(destinoQuery)
+    ]);
+
+    console.log('✅ [FIRESTORE] Queries completadas');
+    console.log('📊 [FIRESTORE] Usuario docs:', userSnapshot.size);
+    console.log('📊 [FIRESTORE] Destino docs:', destinoSnapshot.size);
+
+    if (userSnapshot.empty || destinoSnapshot.empty) {
+      console.log('❌ [ERROR] No se encontraron documentos en Firestore');
+      showToast("Error al conectar con las cuentas", "error");
       return;
     }
+
+    const userDoc = userSnapshot.docs[0];
+    const destinoDoc = destinoSnapshot.docs[0];
     
-    const total = parseFloat(calcularTotal());
-    const TARJETA_DESTINO = "9375021914180118";
+    const userId = userDoc.id;
+    const destinoId = destinoDoc.id;
+    
+    console.log('🔑 [IDS] userId:', userId, 'destinoId:', destinoId);
 
-    try {
-      setProcessing(true);
-      setSendingMoney(true); // ✨ INICIAR ANIMACIÓN DE ENVÍO (BILLETE)
-      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const userRef = doc(db, "usuarios", userId);
+    const destinoRef = doc(db, "usuarios", destinoId);
 
-      const userStr = await AsyncStorage.getItem("user");
-      if (!userStr) {
-        throw new Error("Usuario no encontrado");
-      }
-      const userData = JSON.parse(userStr);
-
-      // ========== FIRESTORE: TRANSFERENCIA DE SALDO ==========
-      const queryBody = {
-        structuredQuery: {
-          from: [{ collectionId: "usuarios" }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath: "tarjeta.numero" },
-              op: "EQUAL",
-              value: { stringValue: tarjetaWawallet.numero },
-            },
-          },
-          limit: 1,
-        },
-      };
-
-      const res = await fetch(
-        "https://firestore.googleapis.com/v1/projects/wawalle/databases/(default)/documents:runQuery",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(queryBody),
-        }
-      );
-
-      const data = await res.json();
-      if (!data || !data[0] || !data[0].document) {
-        showToast("Error al conectar con tu cuenta", "error");
-        return;
-      }
-
-      const userDoc = data[0].document;
-      const userId = userDoc.name.split("/").pop();
-
-      const queryDestino = {
-        structuredQuery: {
-          from: [{ collectionId: "usuarios" }],
-          where: {
-            fieldFilter: {
-              field: { fieldPath: "tarjeta.numero" },
-              op: "EQUAL",
-              value: { stringValue: TARJETA_DESTINO },
-            },
-          },
-          limit: 1,
-        },
-      };
-
-      const resDestino = await fetch(
-        "https://firestore.googleapis.com/v1/projects/wawalle/databases/(default)/documents:runQuery",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(queryDestino),
-        }
-      );
-
-      const dataDestino = await resDestino.json();
-      if (!dataDestino || !dataDestino[0] || !dataDestino[0].document) {
-        showToast("Error al procesar el pago", "error");
-        return;
-      }
-
-      const destinoDoc = dataDestino[0].document;
-      const destinoId = destinoDoc.name.split("/").pop();
-
-      const userRef = doc(db, "usuarios", userId);
-      const destinoRef = doc(db, "usuarios", destinoId);
-
-      await runTransaction(db, async (transaction) => {
-        const userSnap = await transaction.get(userRef);
-        const destinoSnap = await transaction.get(destinoRef);
-
-        if (!userSnap.exists() || !destinoSnap.exists()) {
-          throw new Error("Error en las cuentas");
-        }
-
-        const currentBalance = userSnap.data().balance || 0;
-        const destinoBalance = destinoSnap.data().balance || 0;
-
-        if (currentBalance < total) {
-          throw new Error("SALDO_INSUFICIENTE");
-        }
-
-        const newUserBalance = currentBalance - total;
-        const newDestinoBalance = destinoBalance + total;
-
-        transaction.update(userRef, { balance: newUserBalance });
-        transaction.update(destinoRef, { balance: newDestinoBalance });
-
-        const transaccionUserRef = doc(
-          collection(db, "usuarios", userId, "transacciones")
-        );
-        transaction.set(transaccionUserRef, {
-          tipo: "pago",
-          monto: total,
-          destinatario: "MaisonDesSenteurs",
-          razon: `Compra de ${cart.length} productos`,
-          fecha: new Date(),
-          estado: "completado",
-        });
-
-        const transaccionDestinoRef = doc(
-          collection(db, "usuarios", destinoId, "transacciones")
-        );
-        transaction.set(transaccionDestinoRef, {
-          tipo: "recepcion",
-          monto: total,
-          remitente: `${userSnap.data().nombre} ${userSnap.data().apellido}`,
-          razon: `Venta de ${cart.length} productos`,
-          fecha: new Date(),
-          estado: "completado",
-        });
-      });
-
-      // ========== DJANGO: REGISTRAR VENTA (USANDO ENDPOINTS EXISTENTES) ==========
+    console.log('💳 [TRANSACCION] Iniciando transacción Firebase...');
+    
+    await runTransaction(db, async (transaction) => {
+      console.log('📖 [TRANSACCION] Obteniendo snapshots...');
       
-      // 1. Verificar/Crear cliente
-      const clienteExiste = await fetch(`${apiUrl}/api/clientes/`, {
-        headers: { Accept: "application/json" },
-      });
-      const clientes = await clienteExiste.json();
-      const clienteExistente = clientes.find((c: any) => c.email === clienteData.email);
+      const userSnap = await transaction.get(userRef);
+      const destinoSnap = await transaction.get(destinoRef);
 
-      let clienteId = clienteExistente?.id;
+      console.log('✅ [TRANSACCION] Snapshots obtenidos');
 
-      if (!clienteExistente) {
-        const createClienteRes = await fetch(`${apiUrl}/api/clientes/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            nombre: clienteData.nombre,
-            apellido: clienteData.apellido,
-            cedula: clienteData.cedula,
-            direccion: clienteData.direccion,
-            celular: clienteData.celular,
-            email: clienteData.email,
-            sexo: clienteData.sexo || "Hombre",
-          }),
-        });
-
-        if (!createClienteRes.ok) {
-          throw new Error("Error al crear cliente");
-        }
-
-        const nuevoCliente = await createClienteRes.json();
-        clienteId = nuevoCliente.id;
+      if (!userSnap.exists() || !destinoSnap.exists()) {
+        console.log('❌ [ERROR] Documentos no existen');
+        throw new Error("Error en las cuentas");
       }
 
-      // 2. Crear factura
-      const createFacturaRes = await fetch(`${apiUrl}/api/facturas/`, {
+      const currentBalance = userSnap.data().balance || 0;
+      const destinoBalance = destinoSnap.data().balance || 0;
+
+      console.log('💰 [SALDOS] Usuario:', currentBalance, 'Destino:', destinoBalance, 'Total a pagar:', total);
+
+      if (currentBalance < total) {
+        console.log('❌ [ERROR] Saldo insuficiente');
+        throw new Error("SALDO_INSUFICIENTE");
+      }
+
+      const newUserBalance = currentBalance - total;
+      const newDestinoBalance = destinoBalance + total;
+
+      console.log('💸 [ACTUALIZACION] Nuevos saldos - Usuario:', newUserBalance, 'Destino:', newDestinoBalance);
+
+      transaction.update(userRef, { balance: newUserBalance });
+      transaction.update(destinoRef, { balance: newDestinoBalance });
+
+      const transaccionUserRef = doc(collection(db, "usuarios", userId, "transacciones"));
+      transaction.set(transaccionUserRef, {
+        tipo: "pago",
+        monto: total,
+        destinatario: "MaisonDesSenteurs",
+        razon: `Compra de ${cart.length} productos`,
+        fecha: new Date(),
+        estado: "completado",
+      });
+
+      const transaccionDestinoRef = doc(
+        collection(db, "usuarios", destinoId, "transacciones")
+      );
+      transaction.set(transaccionDestinoRef, {
+        tipo: "recepcion",
+        monto: total,
+        remitente: `${userSnap.data().nombre} ${userSnap.data().apellido}`,
+        razon: `Venta de ${cart.length} productos`,
+        fecha: new Date(),
+        estado: "completado",
+      });
+
+      console.log('✅ [TRANSACCION] Transacción configurada (pendiente commit)');
+    });
+
+    console.log('✅ [TRANSACCION] Transacción Firebase completada exitosamente');
+
+    // OBTENER O CREAR CLIENTE
+    console.log('👥 [CLIENTE] Obteniendo lista de clientes...');
+    
+    const clientes = await fetch(`${apiUrl}/api/clientes/`, {
+      headers: { Accept: "application/json" },
+    }).then(res => {
+      console.log('📥 [CLIENTE] Respuesta recibida, status:', res.status);
+      return res.json();
+    });
+
+    console.log('👥 [CLIENTE] Total clientes:', clientes.length);
+
+    const clienteExistente = clientes.find((c: any) => c.email === clienteData.email);
+    let clienteId = clienteExistente?.id;
+
+    if (!clienteExistente) {
+      console.log('➕ [CLIENTE] Cliente no existe, creando...');
+      
+      const nuevoCliente = await fetch(`${apiUrl}/api/clientes/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          cliente: clienteId,
-          total: total.toFixed(2),
-          metodo_pago: "wawallet",
+          nombre: clienteData.nombre,
+          apellido: clienteData.apellido,
+          cedula: clienteData.cedula,
+          direccion: clienteData.direccion,
+          celular: clienteData.celular,
+          email: clienteData.email,
+          sexo: clienteData.sexo || "Hombre",
         }),
+      }).then(res => {
+        console.log('📥 [CLIENTE] Cliente creado, status:', res.status);
+        return res.json();
       });
 
-      if (!createFacturaRes.ok) {
-        throw new Error("Error al crear factura");
-      }
+      clienteId = nuevoCliente.id;
+      console.log('✅ [CLIENTE] Cliente creado con ID:', clienteId);
+    } else {
+      console.log('✅ [CLIENTE] Cliente existente con ID:', clienteId);
+    }
 
-      const factura = await createFacturaRes.json();
+    // CREAR FACTURA
+    console.log('🧾 [FACTURA] Creando factura...');
 
-      // 3. Crear detalles y actualizar stock
-      for (const item of cart) {
+    const factura = await fetch(`${apiUrl}/api/facturas/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cliente: clienteId,
+        total: resultado.total.toFixed(2),
+        total_sin_descuento: resultado.subtotal.toFixed(2),
+        descuento_aplicado: resultado.tieneDescuento,
+        monto_descuento: resultado.descuento.toFixed(2),
+        metodo_pago: "wawallet",
+      }),
+    }).then(res => {
+      console.log('📥 [FACTURA] Respuesta recibida, status:', res.status);
+      return res.json();
+    });
+
+    console.log('✅ [FACTURA] Factura creada con ID:', factura.id);
+
+    // PROCESAR DETALLES Y STOCK EN PARALELO
+    console.log('📦 [DETALLES] Procesando', cart.length, 'productos en paralelo...');
+    
+    await Promise.all(
+      cart.map(async (item, index) => {
+        console.log(`🔄 [PRODUCTO ${index + 1}/${cart.length}] Procesando:`, item.nombre);
+        
         const subtotal = (Number(item.precio) * (item.cantidad || 1)).toFixed(2);
 
-        // Crear detalle
-        await fetch(`${apiUrl}/api/detalles/`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            factura: factura.id,
-            producto: item.id,
-            cantidad: item.cantidad || 1,
-            precio_unitario: item.precio,
-            subtotal: subtotal,
+        await Promise.all([
+          fetch(`${apiUrl}/api/detalles/`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              factura: factura.id,
+              producto: item.id,
+              cantidad: item.cantidad || 1,
+              precio_unitario: item.precio,
+              subtotal: subtotal,
+            }),
+          }).then(res => {
+            console.log(`✅ [DETALLE ${index + 1}] Status:`, res.status);
+            return res;
           }),
-        });
-
-        // Actualizar stock
-        const nuevoStock = item.stock - (item.cantidad || 1);
-        
-        await fetch(`${apiUrl}/api/productos/${item.id}/`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            stock: nuevoStock,
+          fetch(`${apiUrl}/api/productos/${item.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+              stock: item.stock - (item.cantidad || 1) 
+            }),
+          }).then(res => {
+            console.log(`✅ [STOCK ${index + 1}] Status:`, res.status);
+            return res;
           }),
-        });
-      }
+        ]);
+      })
+    );
 
-      // ✨ ESPERAR UN POCO PARA QUE SE VEA LA ANIMACIÓN
-      await new Promise(resolve => setTimeout(resolve, 2500));
+    console.log('✅ [DETALLES] Todos los productos procesados');
 
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // DELAY PARA UX
+    console.log('⏳ [DELAY] Esperando 800ms para UX...');
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    console.log('✅ [DELAY] Delay completado');
 
-      await clearCart();
-      
-      setSendingMoney(false); // Terminar animación envío
-      setModalVisible(false);
+    console.log('🎉 [SUCCESS] Proceso completado, limpiando...');
+    
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    await clearCart();
+    setSendingMoney(false);
+    setModalVisible(false);
+    await loadCart();
+    setTarjetaWawallet(null);
+
+    console.log('✅ [FINAL] Todo completado exitosamente');
+
+    setTimeout(() => {
+      startSuccessAnimation();
+    }, 200);
+
+  } catch (error: any) {
+    console.error('❌ [ERROR CRÍTICO]', error);
+    console.error('❌ [ERROR] Mensaje:', error.message);
+    console.error('❌ [ERROR] Stack:', error.stack);
+    
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    setSendingMoney(false);
+
+    if (error.message === "SALDO_INSUFICIENTE") {
+      showToast(
+        "Saldo insuficiente. Revisa tu cuenta y vuelve a intentarlo más tarde",
+        "error"
+      );
+    } else if (
+      error.message === "STOCK_INSUFICIENTE" ||
+      error.message.includes("stock")
+    ) {
+      showToast("Stock insuficiente para completar tu compra", "error");
       await loadCart();
-      setTarjetaWawallet(null);
-      
-      setTimeout(() => {
-        startSuccessAnimation();
-      }, 200);
-
-    } catch (error: any) {
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      setSendingMoney(false); // Cancelar animación envío si falla
-
-      if (error.message === "SALDO_INSUFICIENTE") {
-        showToast("Saldo insuficiente. Revisa tu cuenta y vuelve a intentarlo más tarde", "error");
-      } else if (error.message === "STOCK_INSUFICIENTE" || error.message.includes("stock")) {
-        showToast("Stock insuficiente para completar tu compra", "error");
-        await loadCart();
-      } else {
-        showToast("Error al procesar el pago. Inténtalo de nuevo", "error");
-      }
-    } finally {
-      setProcessing(false);
+    } else {
+      showToast("Error al procesar el pago. Inténtalo de nuevo", "error");
     }
-  };
+  } finally {
+    console.log('🏁 [FINALLY] Limpiando estado processing');
+    setProcessing(false);
+  }
+};
 
+  
   const handleConfirmarCompra = () => {
     if (processing) return;
-    
+
     if (!isProfileComplete()) {
       closeModal();
       setTimeout(() => {
@@ -988,14 +1116,15 @@ export default function CarritoScreen() {
       return;
     }
 
-    const total = parseFloat(calcularTotal());
+    const resultado = calcularDescuento(); // ✅ Usar función de descuento
+    const total = resultado.total; // ✅ Total con descuento
 
     setConfirmModal({
       visible: true,
       title: "Confirmar compra",
-      message: `IMPORTANTE: No existe reembolso una vez confirmada la compra.\n\nVas a pagar $${total.toFixed(
+      message: `IMPORTANTE: No existe reembolso una vez confirmada la compra.\n\n$${total.toFixed(
         2
-      )} (${cart.length} ${cart.length === 1 ? 'producto' : 'productos'}).\n\n¿Deseas continuar?`,
+      )} • ${cart.length} ${cart.length === 1 ? "producto" : "productos"}\n\n¿Deseas continuar?`,
       onConfirm: procesarPagoWawallet,
       showCancel: true,
     });
@@ -1003,7 +1132,6 @@ export default function CarritoScreen() {
 
   const openModal = () => {
     const perfilCompleto = isProfileComplete();
-    
     if (!perfilCompleto) {
       setShowIncompleteNotification(true);
       return;
@@ -1011,6 +1139,7 @@ export default function CarritoScreen() {
 
     setModalVisible(true);
     loadTarjetaWawallet();
+
     Animated.timing(slideAnim, {
       toValue: 1,
       duration: 350,
@@ -1025,23 +1154,21 @@ export default function CarritoScreen() {
       duration: 300,
       easing: Easing.in(Easing.ease),
       useNativeDriver: true,
-    }).start(() => {
-      setModalVisible(false);
-      setTarjetaWawallet(null);
-    });
+    }).start();
+    setModalVisible(false);
+    setTarjetaWawallet(null);
   };
 
   const handleGoToCards = () => {
     if (!isProfileComplete()) {
       showToast("Completa tu perfil antes de gestionar tarjetas", "error");
-      
       setTimeout(() => {
         closeModal();
         router.push("/(tabs)/profile");
       }, 1500);
       return;
     }
-    
+
     closeModal();
     router.push("/(tabs)/mistarjetas");
   };
@@ -1053,7 +1180,7 @@ export default function CarritoScreen() {
 
   const checkRotateInterpolate = checkRotate.interpolate({
     inputRange: [0, 1],
-    outputRange: ['0deg', '360deg'],
+    outputRange: ["0deg", "360deg"],
   });
 
   const getCardGradient = (colorIndex: number) => {
@@ -1061,7 +1188,7 @@ export default function CarritoScreen() {
     return CARD_COLORS[colorIndex % CARD_COLORS.length];
   };
 
-  const renderCartItem = ({ item }: { item: any }) => {
+  const renderCartItem = (item: any) => {
     const price = Number(item.precio || 0);
     const quantity = item.cantidad || 1;
     const totalItemPrice = (price * quantity).toFixed(2);
@@ -1070,7 +1197,6 @@ export default function CarritoScreen() {
     return (
       <View style={styles.cardContainer}>
         <View style={styles.card}>
-          {/* 🖼️ IMAGEN FULL HEIGHT */}
           <View style={styles.imageContainer}>
             <Image
               source={{
@@ -1087,7 +1213,7 @@ export default function CarritoScreen() {
               </View>
             )}
           </View>
-          
+
           <View style={styles.infoBox}>
             <View>
               <Text style={styles.cardBrand} numberOfLines={1}>
@@ -1097,8 +1223,8 @@ export default function CarritoScreen() {
                 {item.nombre}
               </Text>
             </View>
-            
-            <View style={{ gap: 4 }}>
+
+            <View style={{ gap: 6 }}>
               <Text style={styles.totalItemText}>${totalItemPrice}</Text>
               <Text
                 style={[
@@ -1117,9 +1243,11 @@ export default function CarritoScreen() {
                 onPress={() => disminuirCantidad(item.id)}
                 activeOpacity={0.7}
               >
-                <Ionicons name="remove" size={18} color="#000" />
+                <Ionicons name="remove" size={20} color="#000" />
               </TouchableOpacity>
+
               <Text style={styles.quantity}>{quantity}</Text>
+
               <TouchableOpacity
                 style={[
                   styles.quantityButton,
@@ -1129,18 +1257,17 @@ export default function CarritoScreen() {
                 disabled={stock === 0}
                 activeOpacity={0.7}
               >
-                <Ionicons name="add" size={18} color={stock === 0 ? "#ccc" : "#000"} />
+                <Ionicons name="add" size={20} color={stock === 0 ? "#ccc" : "#000"} />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* 🗑️ ICONO DE BASURA CENTRADO VERTICALMENTE */}
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => confirmarEliminar(item.id)}
             activeOpacity={0.6}
           >
-            <Ionicons name="trash-outline" size={20} color="#aaa" />
+            <Ionicons name="trash-outline" size={22} color="#aaa" />
           </TouchableOpacity>
         </View>
       </View>
@@ -1148,101 +1275,176 @@ export default function CarritoScreen() {
   };
 
   return (
-    <>
-      <View style={{ flex: 1, backgroundColor: "#fff" }}>
-        {/* ✅ HEADER MODIFICADO: SIN BOTÓN BACK Y TÍTULO CENTRADO */}
-        <View style={styles.header}>
-          <Text style={styles.title}>CESTA</Text>
-        </View>
-
-        {!isLogged ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <Ionicons name="bag-handle-outline" size={80} color="#ddd" />
-            </View>
-            <Text style={styles.emptyTitle}>Inicia sesión</Text>
-            <Text style={styles.emptySubtitle}>
-              Para ver y gestionar tu cesta necesitas iniciar sesión
-            </Text>
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={() => router.push("/login")}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.loginButtonText}>Inicia sesión</Text>
-            </TouchableOpacity>
-          </View>
-        ) : loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#000" />
-          </View>
-        ) : cart.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <Ionicons name="bag-handle-outline" size={80} color="#ddd" />
-            </View>
-            <Text style={styles.emptyTitle}>Tu cesta está vacía</Text>
-            <Text style={styles.emptySubtitle}>
-              Explora nuestro catálogo y añade tus fragancias favoritas
-            </Text>
-            <TouchableOpacity
-              style={styles.exploreButton}
-              onPress={() => router.push("/(tabs)")}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.exploreButtonText}>Explorar catálogo</Text>
-              <Ionicons name="arrow-forward" size={18} color="#fff" style={{ marginLeft: 8 }} />
-            </TouchableOpacity>
-          </View>
-        ) : (
-          <FlatList
-            key="cart-list"
-            data={cart}
-            renderItem={renderCartItem}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={styles.listContainer}
-            showsVerticalScrollIndicator={false}
-          />
-        )}
-
-        {isLogged && cart.length > 0 && (
-          <View style={styles.footerFixed}>
-            <View style={styles.summaryContainer}>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabelFinal}>Total</Text>
-                <Text style={styles.totalPriceFinal}>${calcularTotal()}</Text>
-              </View>
-            </View>
-            <TouchableOpacity
-              style={styles.checkoutButton}
-              onPress={openModal}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="card-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-              <Text style={styles.checkoutButtonText}>Proceder al pago</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+    <View style={{ flex: 1, backgroundColor: "#fff" }}>
+      {/* HEADER IGUAL QUE FAVORITOS */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          style={styles.backButton}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#ffffffff" />
+        </TouchableOpacity>
+        <Text style={styles.sectionTitle}>CESTA</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <Modal transparent visible={modalVisible} animationType="none" statusBarTranslucent>
+      {!isLogged ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="bag-handle-outline" size={80} color="#ddd" />
+          </View>
+          <Text style={styles.emptySubtitle}>
+            Para ver y gestionar tu cesta necesitas iniciar sesión
+          </Text>
+          <TouchableOpacity
+            style={styles.loginButton}
+            onPress={() => router.push("/login")}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.exploreButtonText}>Inicia Sesión</Text>
+          </TouchableOpacity>
+        </View>
+      ) : loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#000" />
+        </View>
+      ) : cart.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <View style={styles.emptyIconContainer}>
+            <Ionicons name="bag-handle-outline" size={80} color="#ddd" />
+          </View>
+          <Text style={styles.emptyTitle}>Tu cesta está vacía</Text>
+          <Text style={styles.emptySubtitle}>
+            Explora nuestro catálogo y añade tus fragancias favoritas
+          </Text>
+          <TouchableOpacity
+            style={styles.exploreButton}
+            onPress={() => router.push("/(tabs)")}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.exploreButtonText}>Explorar catálogo</Text>
+            <Ionicons
+              name="arrow-forward"
+              size={18}
+              color="#fff"
+              style={{ marginLeft: 8 }}
+            />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.listContainer}
+        >
+          {cart.map((item) => (
+            <View key={item.id}>{renderCartItem(item)}</View>
+          ))}
+        </ScrollView>
+      )}
+
+      {/* ✅ FOOTER CON MENSAJE DE DESCUENTO */}
+      {isLogged && cart.length > 0 && (
+        <View style={styles.footerFixed}>
+          <View style={styles.summaryContainer}>
+            {(() => {
+              const resultado = calcularDescuento();
+
+              if (resultado.tieneDescuento) {
+                return (
+                  <>
+                    {/* Subtotal original */}
+                    <View style={styles.totalRow}>
+                      <Text style={styles.totalLabel}>Subtotal:</Text>
+                      <Text style={styles.totalPrice}>
+                        ${resultado.subtotal.toFixed(2)}
+                      </Text>
+                    </View>
+
+                    {/* Descuento aplicado */}
+                    <View style={styles.discountRowFooter}>
+                      <View style={styles.discountBadgeSmall}>
+                        <Ionicons name="pricetag" size={16} color="#10B981" />
+                        <Text style={styles.discountLabelFooter}>
+                          Descuento (15%):
+                        </Text>
+                      </View>
+                      <Text style={styles.discountValueFooter}>
+                        -${resultado.descuento.toFixed(2)}
+                      </Text>
+                    </View>
+
+                    {/* Total final */}
+                    <View style={styles.totalRow}>
+                      <Text style={styles.totalLabelFinal}>Precio Total (IVA):</Text>
+                      <Text style={styles.totalPriceFinal}>
+                        ${resultado.total.toFixed(2)}
+                      </Text>
+                    </View>
+                  </>
+                );
+              } else {
+                // Sin descuento - Mostrar mensaje promocional
+                const faltante = (500 - resultado.subtotal).toFixed(2);
+                return (
+                  <>
+                    {/* ✅ MENSAJE PROMOCIONAL */}
+                    <View style={styles.promoMessage}>
+                      <Ionicons name="gift-outline" size={20} color="#10B981" />
+                      <Text style={styles.promoText}>
+                        Añade ${faltante} más para obtener un <Text style={styles.promoBold}>15% de descuento</Text> en tu compra
+                      </Text>
+                    </View>
+
+                    {/* Total actual */}
+                    <View style={styles.totalRow}>
+                      <Text style={styles.totalLabelFinal}>Precio Total (IVA):</Text>
+                      <Text style={styles.totalPriceFinal}>{calcularTotal()}</Text>
+                    </View>
+                  </>
+                );
+              }
+            })()}
+          </View>
+
+          <TouchableOpacity
+            style={styles.checkoutButton}
+            onPress={openModal}
+            activeOpacity={0.85}
+          >
+            <Ionicons
+              name="card-outline"
+              size={22}
+              color="#fff"
+              style={{ marginRight: 8 }}
+            />
+            <Text style={styles.checkoutButtonText}>Proceder al pago</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* MODAL DE PAGO */}
+      <Modal
+        transparent
+        visible={modalVisible}
+        animationType="none"
+        statusBarTranslucent
+      >
         <KeyboardAvoidingView
           style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={0}
         >
           <View style={styles.modalBackdrop}>
-            <Animated.View
-              style={[styles.modalContent, { transform: [{ translateY }] }]}
-            >
+            <Animated.View style={[styles.modalContent, { transform: [{ translateY }] }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Método de pago</Text>
                 <TouchableOpacity onPress={closeModal} activeOpacity={0.7}>
-                  <Ionicons name="close-circle" size={28} color="#666" />
+                  <Ionicons name="close-circle" size={30} color="#666" />
                 </TouchableOpacity>
               </View>
 
-              <ScrollView 
+              <ScrollView
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 contentContainerStyle={{ paddingBottom: 20 }}
@@ -1254,73 +1456,63 @@ export default function CarritoScreen() {
                       <Text style={styles.loadingText}>Cargando tarjeta...</Text>
                     </View>
                   ) : tarjetaWawallet ? (
-                    <>
-                      {/* ✅ CORREGIDO: LinearGradient ahora es el contenedor padre */}
-                      <LinearGradient
-                        colors={getCardGradient(tarjetaWawallet.colorIndex || 0)}
-                        style={styles.wawalletCard}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                      >
-                        <View style={{ flex: 1, justifyContent: 'space-between', zIndex: 10 }}>
-                          <View style={styles.wawalletCardHeader}>
-                            <Ionicons name="card" size={32} color="#fff" />
-                            <Text style={styles.wawalletCardTitle}>WaWallet</Text>
-                          </View>
-                          
-                          <Text style={styles.wawalletCardNumber}>
-                            •••• •••• •••• {tarjetaWawallet.numero.slice(-4)}
-                          </Text>
-                          
-                          <View>
-                         
-                            <Text style={styles.wawalletCardOwner}>
-                              {tarjetaWawallet.titular}
-                            </Text>
-                          </View>
-                        </View>
-                      </LinearGradient>
-
-                      <View style={styles.warningBox}>
-                        <Ionicons
-                          name="information-circle"
-                          size={22}
-                          color="#F59E0B"
-                        />
-                        <Text style={styles.warningText}>
-                          No existe reembolso una vez confirmada la compra
-                        </Text>
-                      </View>
-                      <TouchableOpacity
-                        style={styles.changeTarjetaButton}
-                        onPress={handleGoToCards}
-                        activeOpacity={0.7}
-                      >
-                        <Ionicons name="swap-horizontal" size={18} color="#000" />
-                        <Text style={styles.changeTarjetaText}>
-                          Cambiar tarjeta
-                        </Text>
-                      </TouchableOpacity>
-                    </>
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.addTarjetaButton}
-                      onPress={handleGoToCards}
-                      activeOpacity={0.85}
+                    <LinearGradient
+                      colors={getCardGradient(tarjetaWawallet.colorIndex || 0)}
+                      style={styles.wawalletCard}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
                     >
-                      <Ionicons name="add-circle-outline" size={24} color="#000" />
-                      <Text style={styles.addTarjetaText}>
-                        Añadir tarjeta de pago
-                      </Text>
-                    </TouchableOpacity>
-                  )}
+                      <View style={{ flex: 1, justifyContent: "space-between", zIndex: 10 }}>
+                        <View style={styles.wawalletCardHeader}>
+                          <Ionicons name="card" size={32} color="#fff" />
+                          <Text style={styles.wawalletCardTitle}>WaWallet</Text>
+                        </View>
+
+                        <Text style={styles.wawalletCardNumber}>
+                          •••• {tarjetaWawallet.numero.slice(-4)}
+                        </Text>
+
+                        <View>
+                          <Text style={styles.wawalletCardOwner}>
+                            {tarjetaWawallet.titular}
+                          </Text>
+                        </View>
+                      </View>
+                    </LinearGradient>
+                  ) : null}
                 </View>
+
+                <View style={styles.warningBox}>
+                  <Ionicons name="information-circle" size={24} color="#F59E0B" />
+                  <Text style={styles.warningText}>
+                    No existe reembolso una vez confirmada la compra
+                  </Text>
+                </View>
+
+                {tarjetaWawallet ? (
+                  <TouchableOpacity
+                    style={styles.changeTarjetaButton}
+                    onPress={handleGoToCards}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="swap-horizontal" size={20} color="#000" />
+                    <Text style={styles.changeTarjetaText}>Cambiar tarjeta</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.addTarjetaButton}
+                    onPress={handleGoToCards}
+                    activeOpacity={0.85}
+                  >
+                    <Ionicons name="add-circle-outline" size={26} color="#000" />
+                    <Text style={styles.addTarjetaText}>Añadir tarjeta de pago</Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                   style={[
                     styles.confirmButton,
-                    (!tarjetaWawallet || processing) &&
-                      styles.confirmButtonDisabled,
+                    (!tarjetaWawallet || processing) && styles.confirmButtonDisabled,
                   ]}
                   onPress={handleConfirmarCompra}
                   disabled={processing || !tarjetaWawallet}
@@ -1329,13 +1521,16 @@ export default function CarritoScreen() {
                   {processing ? (
                     <ActivityIndicator color="#fff" />
                   ) : (
-                    <>
-                      <Ionicons name="checkmark-circle" size={20} color="#fff" style={{ marginRight: 8 }} />
-                      <Text style={styles.confirmText}>
-                        Pagar ${calcularTotal()}
-                      </Text>
-                    </>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={22}
+                      color="#fff"
+                      style={{ marginRight: 8 }}
+                    />
                   )}
+                  <Text style={styles.confirmText}>
+                    Pagar ${calcularDescuento().total.toFixed(2)}
+                  </Text>
                 </TouchableOpacity>
               </ScrollView>
             </Animated.View>
@@ -1354,20 +1549,14 @@ export default function CarritoScreen() {
         showCancel={confirmModal.showCancel}
       />
 
-      {/* ✨ NUEVA ANIMACIÓN DE "ENVIANDO DINERO" */}
       <SendingMoneyOverlay visible={sendingMoney} />
 
       {showSuccessAnimation && (
         <Modal transparent visible={showSuccessAnimation} animationType="none">
-          <Animated.View
-            style={[styles.successOverlay, { opacity: successOpacity }]}
-          >
+          <Animated.View style={[styles.successOverlay, { opacity: successOpacity }]}>
             <View style={styles.successContainer}>
               <Animated.View
-                style={[
-                  styles.mainCircle,
-                  { transform: [{ scale: successScale }] },
-                ]}
+                style={[styles.mainCircle, { transform: [{ scale: successScale }] }]}
               >
                 <Animated.View
                   style={[
@@ -1383,6 +1572,7 @@ export default function CarritoScreen() {
                   <Ionicons name="checkmark" size={100} color="#fff" />
                 </Animated.View>
               </Animated.View>
+
               <Animated.View
                 style={[
                   styles.successTextContainer,
@@ -1417,41 +1607,55 @@ export default function CarritoScreen() {
         type={toast.type}
         onHide={() => setToast({ ...toast, visible: false })}
       />
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  // HEADER MODIFICADO: CENTRADO
+  // HEADER IGUAL QUE FAVORITOS
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center", // Centrado
-    paddingTop: Platform.OS === "ios" ? 75 : 70,
-    paddingBottom: 15,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: HEADER_HEIGHT,
     backgroundColor: "#fff",
+    zIndex: 100,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    paddingBottom: 14,
+    paddingHorizontal: 22,
     borderBottomWidth: 1,
-    borderBottomColor: "#f5f5f5",
+    borderBottomColor: "#f0f0f0",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.04,
+    shadowRadius: 10,
+    elevation: 5,
   },
-  title: {
-    fontSize: 22,
+  backButton: {
+    padding: 10,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    textAlign: "center",
+    color: "#1a1a1a",
+    letterSpacing: 2,
     fontFamily: FONT_TITLE,
-    color: "#000",
-    letterSpacing: 1,
-    fontWeight: '700',
+    fontWeight: "700",
   },
+
   listContainer: {
-    padding: 20,
-    paddingBottom: 250, // ✅ AUMENTADO PARA QUE EL BOTÓN SUBIDO NO TAPE EL FINAL
+    paddingTop: HEADER_HEIGHT + 20,
+    paddingHorizontal: 20,
+    paddingBottom: 350,
   },
+
+  // TARJETAS MÁS BAJAS Y COMPACTAS
   cardContainer: {
-    marginBottom: 20,
-    borderRadius: 16,
+    marginBottom: 18,
+    borderRadius: 18,
     backgroundColor: "#fff",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1461,15 +1665,15 @@ const styles = StyleSheet.create({
   },
   card: {
     flexDirection: "row",
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "#f0f0f0",
-    height: 130, // ALTURA FIJA
+    height: 175,
   },
   imageContainer: {
     width: 110,
-    height: "100%", // OCUPA TODO EL ALTO
+    height: "100%",
     position: "relative",
   },
   image: {
@@ -1495,14 +1699,15 @@ const styles = StyleSheet.create({
   },
   outOfStockText: {
     color: "#EF4444",
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: "700",
     transform: [{ rotate: "-45deg" }],
     borderWidth: 1,
     borderColor: "#EF4444",
-    paddingHorizontal: 4,
-    paddingVertical: 2,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
     borderRadius: 4,
+    fontFamily: FONT_MODERN,
   },
   infoBox: {
     flex: 1,
@@ -1510,31 +1715,32 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   cardBrand: {
-    fontSize: 10,
+    fontSize: 12,
     color: "#666",
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
     fontFamily: FONT_MODERN,
-    fontWeight: '600',
-    marginBottom: 2,
+    fontWeight: "600",
+    marginBottom: 3,
   },
   cardName: {
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: FONT_TITLE,
     color: "#000",
-    lineHeight: 18,
-    fontWeight: '600',
+    lineHeight: 19,
+    fontWeight: "600",
   },
   totalItemText: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#000",
     fontFamily: FONT_TITLE,
     fontWeight: "700",
   },
   stockText: {
-    fontSize: 11,
+    fontSize: 12,
     color: "#10B981",
     fontFamily: FONT_MODERN,
+    fontWeight: "600",
   },
   stockTextWarning: {
     color: "#F59E0B",
@@ -1542,23 +1748,25 @@ const styles = StyleSheet.create({
   stockTextDanger: {
     color: "#EF4444",
   },
+
+  // CONTROLES DE CANTIDAD MÁS VISIBLES
   quantityContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f9f9f9",
     borderRadius: 20,
     paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingVertical: 5,
     alignSelf: "flex-start",
     borderWidth: 1,
     borderColor: "#eee",
   },
   quantityButton: {
-    width: 24,
-    height: 24,
+    width: 26,
+    height: 26,
     justifyContent: "center",
     alignItems: "center",
-    borderRadius: 12,
+    borderRadius: 13,
     backgroundColor: "#fff",
     borderWidth: 1,
     borderColor: "#eee",
@@ -1568,27 +1776,27 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   quantity: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
     color: "#000",
     marginHorizontal: 12,
-    minWidth: 16,
+    minWidth: 18,
     textAlign: "center",
+    fontFamily: FONT_MODERN,
   },
   deleteButton: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 44,
-    height: '100%', // Centrado vertical
+    justifyContent: "center",
+    alignItems: "center",
+    width: 48,
+    height: "100%",
     borderLeftWidth: 1,
-    borderLeftColor: '#f5f5f5',
+    borderLeftColor: "#f5f5f5",
   },
-  deleteButtonContainer: {
-    // Ya no es necesario el container circular
-  },
+
+  // ✅ FOOTER CON DESCUENTO
   footerFixed: {
     position: "absolute",
-    bottom: 60, // ✅ SUBIDO UN POCO MÁS PARA DAR AIRE
+    bottom: 60,
     left: 0,
     right: 0,
     backgroundColor: "#fff",
@@ -1603,30 +1811,101 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   summaryContainer: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 8,
   },
-  totalLabelFinal: {
-    fontSize: 16,
+  totalLabel: {
+    fontSize: 15,
     color: "#666",
     fontFamily: FONT_MODERN,
+    fontWeight: "600",
+  },
+  totalPrice: {
+    fontSize: 16,
+    color: "#111",
+    fontFamily: FONT_MODERN,
+    fontWeight: "600",
+  },
+  totalLabelFinal: {
+    fontSize: 18,
+    color: "#666",
+    fontFamily: FONT_MODERN,
+    fontWeight: "600",
   },
   totalPriceFinal: {
-    fontSize: 24,
+    fontSize: 28,
     color: "#000",
     fontFamily: FONT_TITLE,
     fontWeight: "700",
   },
+
+  // ✅ MENSAJE PROMOCIONAL (SIN DESCUENTO)
+  promoMessage: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ECFDF5",
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+    gap: 10,
+  },
+  promoText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#065F46",
+    fontFamily: FONT_MODERN,
+    lineHeight: 20,
+    fontWeight: "500",
+  },
+  promoBold: {
+    fontWeight: "700",
+    color: "#047857",
+  },
+
+  // ✅ DESCUENTO APLICADO (CON DESCUENTO)
+  discountRowFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: "#ECFDF5",
+    borderRadius: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: "#A7F3D0",
+  },
+  discountBadgeSmall: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  discountLabelFooter: {
+    fontSize: 15,
+    fontFamily: FONT_MODERN,
+    color: "#10B981",
+    fontWeight: "700",
+  },
+  discountValueFooter: {
+    fontSize: 16,
+    fontFamily: FONT_TITLE,
+    color: "#10B981",
+    fontWeight: "700",
+  },
+
   checkoutButton: {
     backgroundColor: "#000",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderRadius: 30,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1636,16 +1915,18 @@ const styles = StyleSheet.create({
   },
   checkoutButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
     fontFamily: FONT_TITLE,
     letterSpacing: 1,
   },
+
   emptyContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 40,
+    marginTop: HEADER_HEIGHT,
   },
   emptyIconContainer: {
     width: 160,
@@ -1657,27 +1938,27 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontFamily: FONT_TITLE,
     color: "#000",
     marginBottom: 12,
     textAlign: "center",
-    fontWeight: '700',
+    fontWeight: "700",
   },
   emptySubtitle: {
-    fontSize: 16,
+    fontSize: 17,
     color: "#666",
     textAlign: "center",
     marginBottom: 32,
-    lineHeight: 24,
+    lineHeight: 26,
     fontFamily: FONT_BODY,
   },
   exploreButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#000",
-    paddingVertical: 14,
-    paddingHorizontal: 28,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
     borderRadius: 30,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -1687,14 +1968,14 @@ const styles = StyleSheet.create({
   },
   exploreButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
     fontFamily: FONT_TITLE,
     letterSpacing: 0.5,
   },
   loginButton: {
     backgroundColor: "#000",
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 40,
     borderRadius: 30,
     shadowColor: "#000",
@@ -1705,16 +1986,18 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "600",
     fontFamily: FONT_TITLE,
     letterSpacing: 0.5,
   },
+
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
   },
+
   modalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
@@ -1744,11 +2027,12 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f0f0f0",
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: FONT_TITLE,
     color: "#000",
-    fontWeight: '700',
+    fontWeight: "700",
   },
+
   wawalletCardContainer: {
     marginBottom: 24,
   },
@@ -1763,7 +2047,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 14,
+    fontSize: 15,
     color: "#666",
     fontFamily: FONT_MODERN,
   },
@@ -1773,14 +2057,14 @@ const styles = StyleSheet.create({
     padding: 24,
     justifyContent: "space-between",
     position: "relative",
-    overflow: "hidden", 
+    overflow: "hidden",
     marginBottom: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 8,
-    backgroundColor: 'transparent', 
+    backgroundColor: "transparent",
   },
   cardGradientBg: {
     position: "absolute",
@@ -1795,41 +2079,42 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   wawalletCardTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "700",
     color: "#fff",
     fontFamily: FONT_TITLE,
     letterSpacing: 1,
   },
   wawalletCardNumber: {
-    fontSize: 20,
+    fontSize: 21,
     color: "#fff",
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontFamily: Platform.OS === "ios" ? "Courier" : "monospace",
     letterSpacing: 2,
-    textShadowColor: 'rgba(0,0,0,0.3)',
+    textShadowColor: "rgba(0,0,0,0.3)",
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
   wawalletCardLabel: {
-    fontSize: 10,
+    fontSize: 11,
     color: "rgba(255,255,255,0.6)",
     fontFamily: FONT_MODERN,
     marginBottom: 4,
     letterSpacing: 1,
   },
   wawalletCardOwner: {
-    fontSize: 14,
+    fontSize: 15,
     color: "rgba(255,255,255,0.95)",
     fontFamily: FONT_MODERN,
     textTransform: "uppercase",
     letterSpacing: 1,
-    fontWeight: '600',
+    fontWeight: "600",
   },
+
   warningBox: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FEF3C7",
-    padding: 16,
+    padding: 18,
     borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
@@ -1838,32 +2123,34 @@ const styles = StyleSheet.create({
   warningText: {
     marginLeft: 12,
     fontFamily: FONT_MODERN,
-    fontSize: 13,
+    fontSize: 14,
     color: "#92400E",
     flex: 1,
-    lineHeight: 20,
-    fontWeight: '600',
+    lineHeight: 22,
+    fontWeight: "600",
   },
+
   changeTarjetaButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   changeTarjetaText: {
     color: "#000",
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: FONT_MODERN,
     textDecorationLine: "underline",
     marginLeft: 8,
-    fontWeight: '600',
+    fontWeight: "600",
   },
+
   addTarjetaButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#f5f5f5",
-    padding: 20,
+    padding: 22,
     borderRadius: 16,
     borderWidth: 2,
     borderColor: "#e8e8e8",
@@ -1871,17 +2158,18 @@ const styles = StyleSheet.create({
   },
   addTarjetaText: {
     fontFamily: FONT_MODERN,
-    fontSize: 15,
+    fontSize: 16,
     marginLeft: 12,
     color: "#000",
-    fontWeight: '600',
+    fontWeight: "600",
   },
+
   confirmButton: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#000",
-    paddingVertical: 18,
+    paddingVertical: 20,
     borderRadius: 30,
     marginTop: 8,
     shadowColor: "#000",
@@ -1897,10 +2185,11 @@ const styles = StyleSheet.create({
   confirmText: {
     color: "#fff",
     fontFamily: FONT_TITLE,
-    fontSize: 16,
+    fontSize: 18,
     letterSpacing: 1,
-    fontWeight: '700',
+    fontWeight: "700",
   },
+
   successOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.95)",
@@ -1930,21 +2219,22 @@ const styles = StyleSheet.create({
   },
   successTitle: {
     fontFamily: FONT_TITLE,
-    fontSize: 34,
+    fontSize: 36,
     color: "#fff",
     letterSpacing: 1.5,
     marginBottom: 16,
     textAlign: "center",
-    fontWeight: '700',
+    fontWeight: "700",
   },
   successSubtitle: {
     fontFamily: FONT_BODY,
-    fontSize: 16,
+    fontSize: 17,
     color: "#aaa",
     letterSpacing: 0.5,
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 26,
   },
+
   toastContainer: {
     position: "absolute",
     top: 0,
@@ -1962,17 +2252,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 18,
   },
   toastText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 16,
     fontFamily: FONT_MODERN,
     marginLeft: 12,
     flex: 1,
     letterSpacing: 0.3,
-    fontWeight: '600',
+    fontWeight: "600",
   },
+
   incompleteNotificationContainer: {
     position: "absolute",
     top: 10,
@@ -1988,7 +2279,7 @@ const styles = StyleSheet.create({
     elevation: 998,
   },
   incompleteNotificationGradient: {
-    padding: 16,
+    padding: 18,
   },
   incompleteNotificationContent: {
     flexDirection: "row",
@@ -2004,18 +2295,18 @@ const styles = StyleSheet.create({
   },
   incompleteNotificationTitle: {
     fontFamily: FONT_TITLE,
-    fontSize: 16,
+    fontSize: 18,
     color: "#fff",
     marginBottom: 4,
     letterSpacing: 0.5,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   incompleteNotificationMessage: {
     fontFamily: FONT_BODY,
-    fontSize: 13,
+    fontSize: 14,
     color: "#fff",
     opacity: 0.95,
-    lineHeight: 18,
+    lineHeight: 20,
   },
   incompleteNotificationActions: {
     flexDirection: "row",
@@ -2024,29 +2315,30 @@ const styles = StyleSheet.create({
   incompleteNotificationButtonSecondary: {
     flex: 1,
     backgroundColor: "rgba(255,255,255,0.2)",
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
   },
   incompleteNotificationButtonSecondaryText: {
     fontFamily: FONT_MODERN,
-    fontSize: 13,
+    fontSize: 14,
     color: "#fff",
-    fontWeight: '600',
+    fontWeight: "600",
   },
   incompleteNotificationButtonPrimary: {
     flex: 1,
     backgroundColor: "#fff",
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 8,
     alignItems: "center",
   },
   incompleteNotificationButtonPrimaryText: {
     fontFamily: FONT_MODERN,
-    fontSize: 13,
+    fontSize: 14,
     color: "#DC2626",
-    fontWeight: '600',
+    fontWeight: "600",
   },
+
   confirmModalBackdrop: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.75)",
@@ -2078,19 +2370,19 @@ const styles = StyleSheet.create({
   },
   confirmTitle: {
     fontFamily: FONT_TITLE,
-    fontSize: 24,
+    fontSize: 26,
     color: "#111",
     textAlign: "center",
     marginBottom: 16,
     letterSpacing: 0.5,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   confirmMessage: {
     fontFamily: FONT_BODY,
-    fontSize: 15,
+    fontSize: 16,
     color: "#666",
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 26,
     marginBottom: 32,
   },
   confirmButtons: {
@@ -2098,7 +2390,7 @@ const styles = StyleSheet.create({
   },
   confirmConfirmButton: {
     backgroundColor: "#111",
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderRadius: 16,
     alignItems: "center",
     shadowColor: "#000",
@@ -2109,25 +2401,25 @@ const styles = StyleSheet.create({
   },
   confirmConfirmText: {
     fontFamily: FONT_TITLE,
-    fontSize: 16,
+    fontSize: 17,
     color: "#fff",
     letterSpacing: 0.5,
-    fontWeight: '700',
+    fontWeight: "700",
   },
   confirmCancelButton: {
     backgroundColor: "#f5f5f5",
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderRadius: 16,
     alignItems: "center",
   },
   confirmCancelText: {
     fontFamily: FONT_MODERN,
-    fontSize: 16,
+    fontSize: 17,
     color: "#666",
     letterSpacing: 0.5,
-    fontWeight: '600',
+    fontWeight: "600",
   },
-  // ✨ ESTILOS ANIMACIÓN DE ENVÍO
+
   sendingOverlay: {
     flex: 1,
     backgroundColor: "rgba(10,10,10,0.95)",
@@ -2148,7 +2440,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
     position: "relative",
-    overflow: 'hidden', // Para que el billete no se salga
+    overflow: "hidden",
   },
   sendingRipple: {
     position: "absolute",
@@ -2160,7 +2452,7 @@ const styles = StyleSheet.create({
   },
   sendingTitle: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 22,
     fontFamily: FONT_TITLE,
     fontWeight: "700",
     marginBottom: 8,
@@ -2168,7 +2460,7 @@ const styles = StyleSheet.create({
   },
   sendingSubtitle: {
     color: "rgba(255,255,255,0.6)",
-    fontSize: 14,
+    fontSize: 15,
     fontFamily: FONT_BODY,
     letterSpacing: 0.5,
   },

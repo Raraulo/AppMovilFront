@@ -34,14 +34,115 @@ import {
 
 const { height, width } = Dimensions.get("window");
 const HEADER_HEIGHT = Platform.OS === 'ios' ? 130 : 115;
-const CARD_WIDTH = (width - 60) / 2;
 
-// 🎨 TIPOGRAFÍA PREMIUM
+const CARD_WIDTH_CAROUSEL = (width - 48) / 2.5;
+const CARD_WIDTH = (width - 60) / 2;
+const CARD_SPACING = 12;
+
+const getModalFooterPadding = () => {
+  if (Platform.OS === 'ios') return 42;
+  
+  if (height >= 880) return 75;
+  if (height >= 850) return 20;
+  if (height >= 800) return 20;
+  if (height >= 750) return 20;
+  return 20;
+};
+
+const MODAL_FOOTER_PADDING = getModalFooterPadding();
+
 const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
 const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
 const FONT_MODERN = Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif';
 
-// ✨ TOAST PROFESIONAL ULTRA RÁPIDO
+// ✅ SKELETON SIMPLIFICADO Y SEGURO (OPCIÓN 2)
+const SkeletonShimmer = ({ width: w, height: h, borderRadius = 0, style = {} }: any) => {
+  const opacity = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(opacity, {
+          toValue: 0.7,
+          duration: 1000,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 0.3,
+          duration: 1000,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: w,
+          height: h,
+          backgroundColor: '#f0f0f0',
+          borderRadius,
+          opacity,
+        },
+        style,
+      ]}
+    />
+  );
+};
+
+const HeroSkeleton = () => (
+  <View style={styles.hero}>
+    <SkeletonShimmer width={width} height={height * 0.58} />
+  </View>
+);
+
+const ProductCardSkeleton = () => (
+  <View style={[styles.productCard, { width: CARD_WIDTH, marginBottom: 32 }]}>
+    <SkeletonShimmer width={CARD_WIDTH} height={CARD_WIDTH * 1.3} borderRadius={14} />
+    <View style={{ padding: 16 }}>
+      <SkeletonShimmer width={80} height={10} borderRadius={4} style={{ marginBottom: 8 }} />
+      <SkeletonShimmer width={CARD_WIDTH - 40} height={14} borderRadius={4} style={{ marginBottom: 6 }} />
+      <SkeletonShimmer width={CARD_WIDTH - 60} height={14} borderRadius={4} style={{ marginBottom: 12 }} />
+      <SkeletonShimmer width={60} height={18} borderRadius={4} />
+    </View>
+  </View>
+);
+
+const BannerSkeleton = () => (
+  <View style={styles.banner}>
+    <SkeletonShimmer width="100%" height={height * 0.55} />
+  </View>
+);
+
+const LoadingSkeleton = () => (
+  <View style={{ flex: 1, backgroundColor: '#fff' }}>
+    <HeroSkeleton />
+    
+    <View style={styles.section}>
+      <SkeletonShimmer width={200} height={24} borderRadius={4} style={{ alignSelf: 'center', marginBottom: 12 }} />
+      <SkeletonShimmer width={55} height={1} style={{ alignSelf: 'center', marginBottom: 12 }} />
+      <SkeletonShimmer width={180} height={16} borderRadius={4} style={{ alignSelf: 'center', marginBottom: 26 }} />
+      
+      <View style={styles.grid}>
+        <ProductCardSkeleton />
+        <ProductCardSkeleton />
+        <ProductCardSkeleton />
+        <ProductCardSkeleton />
+      </View>
+    </View>
+
+    <View style={styles.bannersSection}>
+      <BannerSkeleton />
+      <View style={styles.bannerSpacer} />
+      <BannerSkeleton />
+    </View>
+  </View>
+);
+
 const Toast = ({ visible, message, type = "success", onHide }: any) => {
   const translateY = useRef(new Animated.Value(-120)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -57,7 +158,6 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
       },
       onPanResponderRelease: (_, gestureState) => {
         if (gestureState.dy < -50) {
-          // ⚡ MÁS RÁPIDO
           Animated.parallel([
             Animated.timing(translateY, { toValue: -120, duration: 180, useNativeDriver: true }),
             Animated.timing(opacity, { toValue: 0, duration: 150, useNativeDriver: true }),
@@ -71,19 +171,17 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
 
   useEffect(() => {
     if (visible) {
-      // ⚡ APARICIÓN MÁS RÁPIDA
       Animated.parallel([
         Animated.spring(translateY, { toValue: 0, useNativeDriver: true, friction: 7, tension: 100 }),
         Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
 
       setTimeout(() => {
-        // ⚡ DESAPARICIÓN MÁS RÁPIDA
         Animated.parallel([
           Animated.timing(translateY, { toValue: -120, duration: 250, useNativeDriver: true }),
           Animated.timing(opacity, { toValue: 0, duration: 180, useNativeDriver: true }),
         ]).start(onHide);
-      }, 2800); // ⚡ Duración reducida
+      }, 2800);
     }
   }, [visible]);
 
@@ -112,14 +210,12 @@ const Toast = ({ visible, message, type = "success", onHide }: any) => {
   );
 };
 
-// ✨ SEPARADOR DE SECCIÓN
 const SectionDivider = () => (
   <View style={styles.sectionDivider}>
     <View style={styles.dividerLine} />
   </View>
 );
 
-// ✨ TARJETA MARCA ULTRA RÁPIDA
 const BrandCard = ({ item, onPress }: any) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -140,7 +236,14 @@ const BrandCard = ({ item, onPress }: any) => {
   );
 };
 
-// ✨ TARJETA GRID ULTRA RÁPIDA
+const EmptySearchState = () => (
+  <View style={styles.emptyState}>
+    <Ionicons name="flask-outline" size={64} color="#ccc" />
+    <Text style={styles.emptyTitle}>Marca no encontrada</Text>
+    <Text style={styles.emptySubtitle}>Mantente informado de nuestras nuevas marcas</Text>
+  </View>
+);
+
 const ProductCardGrid = ({ item, onPress, onToggleFavorite, isFavorite }: any) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -177,7 +280,6 @@ const ProductCardGrid = ({ item, onPress, onToggleFavorite, isFavorite }: any) =
   );
 };
 
-// ✨ TARJETA CARRUSEL ULTRA RÁPIDA
 const ProductCardCarousel = ({ item, onPress, onToggleFavorite, isFavorite }: any) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
@@ -249,7 +351,7 @@ export default function HomeScreen() {
   const [filteredBrands, setFilteredBrands] = useState(brands);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [expandedDesc, setExpandedDesc] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'carousel'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'carousel'>('carousel');
 
   const menuSlideAnim = useRef(new Animated.Value(-width)).current;
   const heartScale = useRef(new Animated.Value(1)).current;
@@ -261,22 +363,21 @@ export default function HomeScreen() {
     1: "Perfume", 2: "Eau de Parfum", 3: "Eau de Toilette", 4: "Eau de Cologne", 5: "Eau Fraîche",
   };
 
-  // ⚡ MENÚ HAMBURGUESA ULTRA RÁPIDO
   const toggleMenu = () => {
     if (isMenuOpen) {
       Animated.timing(menuSlideAnim, { 
         toValue: -width, 
-        duration: 220,  // ⚡ MÁS RÁPIDO (era 320)
+        duration: 450,
         useNativeDriver: true, 
-        easing: Easing.bezier(0.4, 0.0, 0.2, 1) 
+        easing: Easing.bezier(0.4, 0.0, 0.2, 1)
       }).start(() => setIsMenuOpen(false));
     } else {
       setIsMenuOpen(true);
       Animated.timing(menuSlideAnim, { 
         toValue: 0, 
-        duration: 250,  // ⚡ MÁS RÁPIDO (era 350)
+        duration: 500,
         useNativeDriver: true, 
-        easing: Easing.bezier(0.0, 0.0, 0.2, 1) 
+        easing: Easing.bezier(0.0, 0.0, 0.2, 1)
       }).start();
     }
   };
@@ -291,9 +392,8 @@ export default function HomeScreen() {
   const goToMarca = (brand: any) => router.push({ pathname: `../marcas/${brand.name}`, params: { marcaId: brand.id } });
 
   const carouselImages = [
-     { uri: "https://editorialtelevisa.brightspotcdn.com/dims4/default/7759517/2147483647/strip/false/crop/1280x883+0+0/resize/1280x883!/quality/90/?url=https%3A%2F%2Fk2-prod-editorial-televisa.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fwp-content%2Fuploads%2F2021%2F02%2Fperfumes-para-parejas-paco-rabbane-build-love.jpg", text: "Exclusivo por naturaleza.", subtitle: "Descubre tu esencia" },
+    { uri: "https://editorialtelevisa.brightspotcdn.com/dims4/default/7759517/2147483647/strip/false/crop/1280x883+0+0/resize/1280x883!/quality/90/?url=https%3A%2F%2Fk2-prod-editorial-televisa.s3.us-east-1.amazonaws.com%2Fbrightspot%2Fwp-content%2Fuploads%2F2021%2F02%2Fperfumes-para-parejas-paco-rabbane-build-love.jpg", text: "Exclusivo por naturaleza.", subtitle: "Descubre tu esencia" },
     { uri: "https://wallpapers.com/images/hd/pink-bloom-perfume-gucci-4k-jncnu583h0ou7083.jpg", text: "Tu sello olfativo.", subtitle: "Sofisticación única" },
-   
     { uri: "https://images.ecestaticos.com/1FCAH4Eh_3M1B3TDYA81fXMvcmU=/38x7:2049x1515/1200x899/filters:fill(white):format(jpg)/f.elconfidencial.com%2Foriginal%2Fac0%2F34f%2F50e%2Fac034f50ed80fc6a5042fab968d68372.jpg", text: "Más que perfume, presencia.", subtitle: "Elegancia atemporal" },
   ];
 
@@ -302,19 +402,20 @@ export default function HomeScreen() {
     else setFilteredBrands(brands.filter(b => b.name.toLowerCase().replace(/-/g, ' ').includes(searchQuery.toLowerCase())));
   }, [searchQuery]);
 
-  // ⚡ CARRUSEL MÁS RÁPIDO
   useEffect(() => {
     const interval = setInterval(() => {
       const next = (currentIndex + 1) % carouselImages.length;
       flatListRef.current?.scrollToIndex({ index: next, animated: true });
       setCurrentIndex(next);
-    }, 4500); // ⚡ MÁS RÁPIDO (era 6000)
+    }, 4500);
     return () => clearInterval(interval);
   }, [currentIndex]);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
+        await new Promise(resolve => setTimeout(resolve, 1200));
+        
         const [resProd, resMarcas] = await Promise.all([fetch(`${apiUrl}/api/productos/`), fetch(`${apiUrl}/api/marcas/`)]);
         const productos = await resProd.json();
         const marcas = await resMarcas.json();
@@ -331,13 +432,12 @@ export default function HomeScreen() {
     if (apiUrl) { fetchData(); loadStorage(); }
   }, [apiUrl]);
 
-  // ⚡ FAVORITOS MÁS RÁPIDO
   const toggleFavorite = async (item: any) => {
     const isFav = favoritos.some(f => f.id === item.id);
     const updated = isFav ? await removeFromFavorites(item.id) : await addToFavorites(item);
     setFavoritos(updated);
     Animated.sequence([
-      Animated.timing(heartScale, { toValue: 0.8, duration: 80, useNativeDriver: true }),  // ⚡ MÁS RÁPIDO
+      Animated.timing(heartScale, { toValue: 0.8, duration: 80, useNativeDriver: true }),
       Animated.spring(heartScale, { toValue: 1.15, useNativeDriver: true, friction: 3, tension: 100 }),
       Animated.spring(heartScale, { toValue: 1, useNativeDriver: true, friction: 4 }),
     ]).start();
@@ -348,7 +448,7 @@ export default function HomeScreen() {
     setSelectedIndex(index); 
     setIsModalVisible(true); 
     setExpandedDesc(false); 
-    setTimeout(() => modalFlatListRef.current?.scrollToIndex({ index, animated: false }), 50);  // ⚡ MÁS RÁPIDO
+    setTimeout(() => modalFlatListRef.current?.scrollToIndex({ index, animated: false }), 50);
   };
   const closeModal = () => { setIsModalVisible(false); };
 
@@ -400,7 +500,7 @@ export default function HomeScreen() {
 
         <ScrollView
           style={styles.modalScrollContent}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: 140 }}
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
@@ -479,7 +579,25 @@ export default function HomeScreen() {
     );
   };
 
-  if (loading) return <View style={{ flex: 1, backgroundColor: '#fff' }} />;
+  if (loading) return (
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" translucent backgroundColor="transparent" />
+      
+      <View style={styles.header}>
+        <Image source={require("../../assets/images/logomaison.png")} style={styles.logo} resizeMode="contain" />
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity onPress={toggleMenu} style={styles.menuBtn} activeOpacity={0.7}>
+          <Ionicons name="menu-outline" size={30} color="#1a1a1a" />
+        </TouchableOpacity>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false}>
+        <LoadingSkeleton />
+      </ScrollView>
+
+      <FancyTabBar cartCount={0} state={{ index: 0, routes: [{ key: "index", name: "index" }, { key: "favoritos/index", name: "favoritos/index" }, { key: "carrito/index", name: "carrito/index" }, { key: "top", name: "top" }, { key: "profile", name: "profile" }] }} descriptors={{}} navigation={{ navigate: (n: string) => n === "index" ? router.back() : router.push(`/(tabs)/${n.replace("/index", "")}`), emit: () => ({ defaultPrevented: false }) }} />
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -524,25 +642,28 @@ export default function HomeScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>SELECCIÓN EXCLUSIVA</Text>
           <View style={styles.sectionLine} />
-          <Text style={styles.sectionSub}>Curado especialmente para ti</Text>
+          <Text style={styles.sectionSub}>Revisa alguno de nuestros productos</Text>
           
-          <View style={styles.viewToggle}>
-            <TouchableOpacity 
-              style={[styles.toggleBtn, viewMode === 'grid' && styles.toggleBtnActive]} 
-              onPress={() => setViewMode('grid')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="grid-outline" size={22} color={viewMode === 'grid' ? "#fff" : "#666"} />
-              <Text style={[styles.toggleText, viewMode === 'grid' && styles.toggleTextActive]}>Cuadrícula</Text>
-            </TouchableOpacity>
-            <TouchableOpacity 
-              style={[styles.toggleBtn, viewMode === 'carousel' && styles.toggleBtnActive]} 
-              onPress={() => setViewMode('carousel')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="browsers-outline" size={22} color={viewMode === 'carousel' ? "#fff" : "#666"} />
-              <Text style={[styles.toggleText, viewMode === 'carousel' && styles.toggleTextActive]}>Carrusel</Text>
-            </TouchableOpacity>
+          <View style={styles.viewToggleWrapper}>
+            <Text style={styles.viewLabel}>Ver como</Text>
+            <View style={styles.viewToggle}>
+              <TouchableOpacity 
+                style={[styles.toggleBtn, viewMode === 'grid' && styles.toggleBtnActive]} 
+                onPress={() => setViewMode('grid')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="grid-outline" size={24} color="#1a1a1a" />
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.toggleBtn, viewMode === 'carousel' && styles.toggleBtnActive]} 
+                onPress={() => setViewMode('carousel')}
+                activeOpacity={0.8}
+              >
+                <View style={{ transform: [{ rotate: '90deg' }] }}>
+                  <Ionicons name="albums-outline" size={24} color="#1a1a1a" />
+                </View>
+              </TouchableOpacity>
+            </View>
           </View>
           
           {viewMode === 'grid' ? (
@@ -558,23 +679,26 @@ export default function HomeScreen() {
               ))}
             </View>
           ) : (
-            <FlatList
-              data={recomendados}
+            <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingRight: 20, paddingBottom: 20 }}
-              snapToInterval={CARD_WIDTH + 18}
-              decelerationRate="fast"
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={({ item, index }) => (
-                <ProductCardCarousel
-                  item={item}
-                  onPress={() => openModal(index)}
-                  onToggleFavorite={() => toggleFavorite(item)}
-                  isFavorite={isFavorite(item.id)}
-                />
-              )}
-            />
+              contentContainerStyle={{ 
+                paddingLeft: 2, 
+                paddingRight: 20, 
+                paddingBottom: 20 
+              }}
+            >
+              {recomendados.map((item, index) => (
+                <View key={item.id} style={{ marginRight: CARD_SPACING }}>
+                  <ProductCardCarousel
+                    item={item}
+                    onPress={() => openModal(index)}
+                    onToggleFavorite={() => toggleFavorite(item)}
+                    isFavorite={isFavorite(item.id)}
+                  />
+                </View>
+              ))}
+            </ScrollView>
           )}
         </View>
 
@@ -582,7 +706,7 @@ export default function HomeScreen() {
 
         <View style={styles.bannersSection}>
           <TouchableOpacity style={styles.banner} onPress={goToMujeres} activeOpacity={0.93}>
-            <Image source={{ uri: "https://pbs.twimg.com/media/F1Z1ChsXgAAA_Nb.jpg" }} style={styles.bannerImg} />
+            <Image source={{ uri: "https://pbs.twimg.com/media/F1Z1ChsXgAAA_Nb.jpg" }} style={styles.bannerImg} resizeMode="cover" />
             <LinearGradient colors={['transparent', 'transparent', 'rgba(0,0,0,0.88)']} style={StyleSheet.absoluteFill} />
             <View style={styles.bannerContent}>
               <Text style={styles.bannerTitle}>MUJERES</Text>
@@ -594,7 +718,7 @@ export default function HomeScreen() {
           <View style={styles.bannerSpacer} />
 
           <TouchableOpacity style={styles.banner} onPress={goToHombres} activeOpacity={0.93}>
-            <Image source={{ uri: "https://agenciapura.com/wp-content/uploads/2025/02/german-gomez-768x1152.webp" }} style={styles.bannerImg} />
+            <Image source={{ uri: "https://agenciapura.com/wp-content/uploads/2025/02/german-gomez-768x1152.webp" }} style={styles.bannerImg} resizeMode="cover" />
             <LinearGradient colors={['transparent', 'transparent', 'rgba(0,0,0,0.88)']} style={StyleSheet.absoluteFill} />
             <View style={styles.bannerContent}>
               <Text style={styles.bannerTitle}>HOMBRES</Text>
@@ -606,8 +730,11 @@ export default function HomeScreen() {
       </ScrollView>
 
       {isMenuOpen && (
-        <TouchableOpacity style={styles.menuBackdrop} onPress={toggleMenu} activeOpacity={1}>
-          <Animated.View style={[styles.menu, { transform: [{ translateX: menuSlideAnim }] }]}>
+        <View style={styles.menuBackdrop} pointerEvents="box-none">
+          <Animated.View 
+            style={[styles.menu, { transform: [{ translateX: menuSlideAnim }] }]}
+            pointerEvents="box-none"
+          >
             <View style={styles.menuHeader}>
               <Image source={require("../../assets/images/logomaison.png")} style={styles.menuLogo} resizeMode="contain" />
               <TouchableOpacity onPress={toggleMenu} activeOpacity={0.7}>
@@ -627,14 +754,18 @@ export default function HomeScreen() {
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 70 }}>
-              <View style={styles.brandsGrid}>
-                {(searchQuery.trim() !== "" ? filteredBrands : brands).map(brand => (
-                  <BrandCard key={brand.id} item={brand} onPress={() => { goToMarca(brand); toggleMenu(); setSearchQuery(""); }} />
-                ))}
-              </View>
+              {searchQuery.trim() !== "" && filteredBrands.length === 0 ? (
+                <EmptySearchState />
+              ) : (
+                <View style={styles.brandsGrid}>
+                  {(searchQuery.trim() !== "" ? filteredBrands : brands).map(brand => (
+                    <BrandCard key={brand.id} item={brand} onPress={() => { goToMarca(brand); toggleMenu(); setSearchQuery(""); }} />
+                  ))}
+                </View>
+              )}
             </ScrollView>
           </Animated.View>
-        </TouchableOpacity>
+        </View>
       )}
 
       {isModalVisible && (
@@ -689,13 +820,13 @@ const styles = StyleSheet.create({
   section: { paddingVertical: 35, paddingBottom: 50, paddingHorizontal: 22, backgroundColor: '#fff' },
   sectionTitle: { fontSize: 24, textAlign: 'center', color: '#1a1a1a', letterSpacing: 1.5, fontFamily: FONT_TITLE, fontWeight: '400' },
   sectionLine: { width: 55, height: 1, backgroundColor: '#1a1a1a', alignSelf: 'center', marginVertical: 12 },
-  sectionSub: { fontSize: 12, textAlign: 'center', color: '#666', marginBottom: 26, fontFamily: FONT_BODY, fontStyle: 'italic', letterSpacing: 0.5 },
+  sectionSub: { fontSize: 16, textAlign: 'center', color: '#666', marginBottom: 26, fontFamily: FONT_BODY, fontWeight: '500', letterSpacing: 0.5 },
   
-  viewToggle: { flexDirection: 'row', gap: 14, marginBottom: 28 },
-  toggleBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, backgroundColor: 'transparent', borderRadius: 12, paddingVertical: 16 },
-  toggleBtnActive: { backgroundColor: '#1a1a1a' },
-  toggleText: { fontSize: 13, color: '#666', fontFamily: FONT_MODERN, fontWeight: '600', letterSpacing: 0.5 },
-  toggleTextActive: { color: '#fff' },
+  viewToggleWrapper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 12, marginBottom: 28 },
+  viewLabel: { fontSize: 14, color: '#1a1a1a', fontFamily: FONT_MODERN, fontWeight: '600', letterSpacing: 0.5 },
+  viewToggle: { flexDirection: 'row', gap: 10 },
+  toggleBtn: { padding: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: 'transparent', borderRadius: 0 },
+  toggleBtnActive: { backgroundColor: 'transparent' },
 
   grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   productCard: { marginBottom: 32, backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6, borderWidth: 1, borderColor: '#f5f5f5' },
@@ -710,12 +841,24 @@ const styles = StyleSheet.create({
   priceContainer: { alignItems: 'flex-start' },
   productPrice: { fontSize: 17, color: '#1a1a1a', fontFamily: FONT_TITLE, fontWeight: '600' },
 
-  productCardCarousel: { width: CARD_WIDTH, marginRight: 18, backgroundColor: '#fff', borderRadius: 14, overflow: 'hidden', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 6, borderWidth: 1, borderColor: '#f5f5f5' },
-  productImgBoxCarousel: { width: '100%', height: CARD_WIDTH * 1.3, position: 'relative' },
+  productCardCarousel: { 
+    width: CARD_WIDTH_CAROUSEL, 
+    backgroundColor: '#fff', 
+    borderRadius: 14, 
+    overflow: 'hidden', 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.08, 
+    shadowRadius: 12, 
+    elevation: 6, 
+    borderWidth: 1, 
+    borderColor: '#f5f5f5' 
+  },
+  productImgBoxCarousel: { width: '100%', height: CARD_WIDTH_CAROUSEL * 1.3, position: 'relative' },
 
-  bannersSection: { paddingBottom: 100 },
-  banner: { width: '100%', height: height * 0.62, position: 'relative' },
-  bannerSpacer: { height: 25 },
+  bannersSection: { paddingBottom: 100, paddingHorizontal: 30 },
+  banner: { width: '100%', height: height * 0.65, position: 'relative', borderRadius: 0, overflow: 'hidden' },
+  bannerSpacer: { height: 20 },
   bannerImg: { width: '100%', height: '100%' },
   bannerContent: { position: 'absolute', bottom: 45, left: 32 },
   bannerTitle: { color: '#fff', fontSize: 34, letterSpacing: 3, marginBottom: 12, fontFamily: FONT_TITLE, fontWeight: '400' },
@@ -733,15 +876,19 @@ const styles = StyleSheet.create({
   brandImgBox: { width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' },
   brandImg: { width: '85%', height: '85%' },
 
+  emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 80, paddingHorizontal: 40 },
+  emptyTitle: { fontSize: 18, color: '#1a1a1a', marginTop: 20, marginBottom: 10, fontFamily: FONT_TITLE, fontWeight: '600', textAlign: 'center' },
+  emptySubtitle: { fontSize: 14, color: '#999', fontFamily: FONT_BODY, textAlign: 'center', lineHeight: 22 },
+
   modalBackdrop: { flex: 1, backgroundColor: '#fff' },
   closeBtn: { position: 'absolute', top: 55, right: 22, zIndex: 10 },
   closeBtnInner: { backgroundColor: '#fff', borderRadius: 24, padding: 11, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, elevation: 8, borderWidth: 1, borderColor: '#f0f0f0' },
-  modalImageFixed: { position: 'absolute', top: 5, left: 0, right: 0, height: height * 0.5, zIndex: 1 },
+  modalImageFixed: { position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.48, zIndex: 1 },
   modalImage: { width: '100%', height: '100%' },
   modalSoldOut: { position: 'absolute', top: '45%', left: 0, right: 0, backgroundColor: '#DC2626', paddingVertical: 14, alignItems: 'center' },
   modalSoldOutText: { color: '#fff', fontSize: 11, letterSpacing: 3, fontFamily: FONT_MODERN, fontWeight: '700' },
   modalFav: { position: 'absolute', bottom: 18, right: 18, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 28, padding: 12, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12 },
-  modalScrollContent: { flex: 1, marginTop: height * 0.5 + 20 },
+  modalScrollContent: { flex: 1, marginTop: height * 0.48 + 15 },
   modalContent: { padding: 28, paddingTop: 24 },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
   modalBrand: { fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8, fontFamily: FONT_MODERN, fontWeight: '700' },
@@ -760,9 +907,24 @@ const styles = StyleSheet.create({
   brandLinkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafafa', borderRadius: 12, padding: 20, borderWidth: 1, borderColor: '#f0f0f0', marginTop: 4 },
   brandLinkText: { fontSize: 14, color: '#1a1a1a', fontFamily: FONT_BODY, fontWeight: '600', letterSpacing: 0.2, flex: 1 },
   
-  modalFooter: { position: 'absolute', bottom: -30, left: 0, right: 0, backgroundColor: '#fff', paddingHorizontal: 24, paddingTop: 22, paddingBottom: 0, borderTopWidth: 1, borderTopColor: '#f0f0f0', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 15, zIndex: 2 },
+  modalFooter: { 
+    position: 'absolute', 
+    bottom: 0, 
+    left: 0, 
+    right: 0, 
+    backgroundColor: '#fff', 
+    paddingHorizontal: 24, 
+    paddingTop: 22, 
+    paddingBottom: MODAL_FOOTER_PADDING,
+    borderTopWidth: 1, 
+    borderTopColor: '#f0f0f0', 
+    shadowColor: '#000', 
+    shadowOpacity: 0.1, 
+    shadowRadius: 15, 
+    zIndex: 2 
+  },
   
-  addBtn: { backgroundColor: '#1a1a1a', borderRadius: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 19, gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 14, elevation: 10, marginBottom: Platform.OS === 'ios' ? 64 : 40 },
+  addBtn: { backgroundColor: '#1a1a1a', borderRadius: 30, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 19, gap: 12, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 14, elevation: 10 },
   addBtnDisabled: { backgroundColor: '#f0f0f0' },
   addBtnText: { color: '#fff', fontSize: 13, letterSpacing: 2.2, fontFamily: FONT_MODERN, fontWeight: '700' },
 

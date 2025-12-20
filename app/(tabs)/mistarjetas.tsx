@@ -1169,7 +1169,7 @@ const styles = StyleSheet.create({
     width: 100,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#FEE2E2",
+    backgroundColor: "#ffffffff",
     borderRadius: 20,
   },
   cardAnimatedWrapper: {
