@@ -1,4 +1,4 @@
-// app/(tabs)/ia/giulia.tsx - ✅ VERSIÓN COMPLETA CON CORRECCIONES
+// app/(tabs)/ia/giulia.tsx - ✅ TODO SUBE CON EL TECLADO
 import {
   PlayfairDisplay_400Regular,
   PlayfairDisplay_600SemiBold,
@@ -19,7 +19,7 @@ import {
   Easing,
   FlatList,
   Image,
-  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   ScrollView,
@@ -34,7 +34,6 @@ import { useApi } from "../../../contexts/ApiContext";
 
 const { width, height } = Dimensions.get("window");
 
-// ✅ Detección de tamaño de pantalla
 const getScreenSize = () => {
   if (height < 700) return 'small';
   if (height < 850) return 'medium';
@@ -43,7 +42,6 @@ const getScreenSize = () => {
 
 const SCREEN_SIZE = getScreenSize();
 
-// ✅ Configuración adaptativa según tamaño
 const KEYBOARD_CONFIG = {
   small: {
     paddingBottom: 90,
@@ -345,13 +343,9 @@ export default function GiuliaScreen() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateAnim = useRef(new Animated.Value(40)).current;
 
-  // ✅ CAMBIO: Usar translateY en lugar de bottom
-  const inputTranslateY = useRef(new Animated.Value(0)).current;
-
-  // ✅ NUEVO: Estado para mostrar/ocultar botón scroll to bottom
   const [showScrollButton, setShowScrollButton] = useState(false);
-
   const [activeSlide, setActiveSlide] = useState(0);
+  
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
       setActiveSlide(viewableItems[0].index || 0);
@@ -371,66 +365,9 @@ export default function GiuliaScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [productos, setProductos] = useState<any[]>([]);
   const [conversaciones, setConversaciones] = useState<Conversation[]>([]);
-  const [conversacionActual, setConversacionActual] = useState<string | null>(
-    null
-  );
+  const [conversacionActual, setConversacionActual] = useState<string | null>(null);
   const [modalHistorial, setModalHistorial] = useState(false);
   const [loadingProducts, setLoadingProducts] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  
-// ✅ AJUSTE: Gestión del teclado SIN TAPAR NAVBAR
-useEffect(() => {
-  console.log('🔧 TabBarHeight detectado:', tabBarHeight);
-
-  const keyboardDidShowListener = Keyboard.addListener(
-    Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-    (e) => {
-      const keyHeight = e.endCoordinates.height;
-      console.log('⌨️ Teclado mostrado - Altura:', keyHeight);
-      setKeyboardHeight(keyHeight);
-
-      // ✅ NUEVO CÁLCULO: Solo elevar lo justo sin tapar navbar
-      // Resta el tabBarHeight para mantener espacio para el navbar
-      const targetValue = Platform.OS === 'android' 
-        ? -(keyHeight - tabBarHeight - 200)  // -60 deja espacio para navbar en Android
-        : -(keyHeight - tabBarHeight - 100); // -20 para iOS
-
-      console.log('🎯 Target translateY:', targetValue);
-
-      Animated.spring(inputTranslateY, {
-        toValue: targetValue,
-        useNativeDriver: true,
-        friction: 8,
-        tension: 40,
-      }).start();
-
-      setTimeout(() => {
-        scrollViewRef.current?.scrollToEnd({ animated: true });
-      }, 100);
-    }
-  );
-
-  const keyboardDidHideListener = Keyboard.addListener(
-    Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-    () => {
-      console.log('⌨️ Teclado oculto');
-      setKeyboardHeight(0);
-
-      Animated.spring(inputTranslateY, {
-        toValue: 0,
-        useNativeDriver: true,
-        friction: 8,
-        tension: 40,
-      }).start();
-    }
-  );
-
-  return () => {
-    keyboardDidShowListener.remove();
-    keyboardDidHideListener.remove();
-  };
-}, [tabBarHeight]);
 
   useEffect(() => {
     checkAuth();
@@ -441,9 +378,7 @@ useEffect(() => {
   useEffect(() => {
     const cargarConversacionTemporal = async () => {
       try {
-        const temporal = await AsyncStorage.getItem(
-          "giulia_conversacion_temporal"
-        );
+        const temporal = await AsyncStorage.getItem("giulia_conversacion_temporal");
         if (temporal) {
           const data = JSON.parse(temporal);
           setMessages(
@@ -453,7 +388,6 @@ useEffect(() => {
             }))
           );
           setConversacionActual(data.id);
-          console.log("✅ Conversación cargada desde temporal");
         } else if (!conversacionActual) {
           crearNuevaConversacion();
         }
@@ -497,7 +431,6 @@ useEffect(() => {
     }
   }, [checkingAuth]);
 
-  // ✅ NUEVO: Detectar si el usuario está cerca del final
   const handleScroll = (event: any) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
     const isNearBottom = 
@@ -505,7 +438,6 @@ useEffect(() => {
     setShowScrollButton(!isNearBottom);
   };
 
-  // ✅ NUEVO: Función para ir al final
   const scrollToBottom = () => {
     scrollViewRef.current?.scrollToEnd({ animated: true });
   };
@@ -538,7 +470,6 @@ useEffect(() => {
         return;
       }
 
-      console.log("📡 Conectando a:", `${apiUrl}/api/productos/`);
       const res = await fetch(`${apiUrl}/api/productos/`, {
         method: "GET",
         headers: {
@@ -551,8 +482,6 @@ useEffect(() => {
       }
 
       const data = await res.json();
-      console.log("✅ Productos cargados desde API:", data.length);
-
       await AsyncStorage.setItem("giulia_productos_cache", JSON.stringify(data));
       setProductos(data);
     } catch (error) {
@@ -563,7 +492,6 @@ useEffect(() => {
         if (cache) {
           const cachedData = JSON.parse(cache);
           setProductos(cachedData);
-          console.log("✅ Productos cargados desde caché:", cachedData.length);
         }
       } catch (cacheError) {
         console.error("❌ Error cargando caché:", cacheError);
@@ -589,7 +517,6 @@ useEffect(() => {
             })),
           }));
         setConversaciones(conversacionesValidas);
-        console.log("✅ Conversaciones cargadas:", conversacionesValidas.length);
       }
     } catch (error) {
       console.error("Error cargando conversaciones:", error);
@@ -606,7 +533,6 @@ useEffect(() => {
         "giulia_conversaciones",
         JSON.stringify(convsValidas)
       );
-      console.log("✅ Conversaciones guardadas:", convsValidas.length);
     } catch (error) {
       console.error("Error guardando conversaciones:", error);
     }
@@ -653,11 +579,8 @@ useEffect(() => {
 
   const eliminarConversacion = async (convId: string) => {
     try {
-      console.log("🗑️ Eliminando conversación:", convId);
-
       const nuevasConvs = conversaciones.filter((c) => c.id !== convId);
       setConversaciones(nuevasConvs);
-
       await guardarConversaciones(nuevasConvs);
 
       if (convId === conversacionActual) {
@@ -683,8 +606,6 @@ useEffect(() => {
           }, 100);
         }
       }
-
-      console.log("✅ Conversación eliminada exitosamente");
     } catch (error) {
       console.error("❌ Error eliminando conversación:", error);
     }
@@ -785,7 +706,6 @@ useEffect(() => {
     setInputText("");
     setIsLoading(true);
 
-    // ✅ Auto-scroll después de enviar mensaje
     setTimeout(() => {
       scrollToBottom();
     }, 100);
@@ -839,8 +759,6 @@ INSTRUCCIONES IMPORTANTES:
 - Usa emojis sutiles solo para dar elegancia (✨🌸💎)
 - Si el cliente pregunta por algo no disponible, ofrece alternativas similares del inventario`;
 
-      console.log("📤 Enviando consulta a Perplexity AI...");
-
       const response = await fetch(
         "https://api.perplexity.ai/chat/completions",
         {
@@ -868,8 +786,6 @@ INSTRUCCIONES IMPORTANTES:
           }),
         }
       );
-
-      console.log("📥 Respuesta recibida. Status:", response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -907,10 +823,6 @@ INSTRUCCIONES IMPORTANTES:
       setMessages(finalMessages);
       actualizarConversacionActual(finalMessages);
 
-      console.log("✅ Respuesta procesada exitosamente");
-      console.log("🎁 Productos recomendados:", productosRecomendados.length);
-
-      // ✅ Auto-scroll después de recibir respuesta
       setTimeout(() => {
         scrollToBottom();
       }, 300);
@@ -1062,135 +974,133 @@ INSTRUCCIONES IMPORTANTES:
         </View>
       </View>
 
-<ScrollView
-  ref={scrollViewRef}
-  style={styles.messagesContainer}
-  contentContainerStyle={{
-    padding: 16,
-    // ✅ REDUCIR el padding cuando el teclado está abierto
-    paddingBottom: keyboardHeight > 0
-      ? 200  // Solo 80px de espacio con teclado (ajústalo a tu gusto)
-      : tabBarHeight + CONFIG.paddingBottom
-  }}
-  showsVerticalScrollIndicator={false}
-  keyboardShouldPersistTaps="handled"
-  keyboardDismissMode="interactive"
-  onScroll={handleScroll}
-  scrollEventThrottle={400}
->
-        {messages.map((item) => (
-          <View
-            key={item.id}
-            style={[
-              styles.messageContainer,
-              item.isUser
-                ? styles.userMessageContainer
-                : styles.aiMessageContainer,
-            ]}
-          >
-            {!item.isUser && (
-              <View style={styles.aiAvatar}>
-                <Ionicons name="sparkles" size={18} color="#fff" />
-              </View>
-            )}
-            <View style={{ flex: 1 }}>
-              <View
-                style={[
-                  styles.messageBubble,
-                  item.isUser ? styles.userBubble : styles.aiBubble,
-                ]}
-              >
-                <Text
+      {/* 🔥 AQUÍ ESTÁ EL CAMBIO PRINCIPAL: KeyboardAvoidingView envuelve TODO */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 5}
+      >
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: tabBarHeight + 100,
+          }}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          onScroll={handleScroll}
+          scrollEventThrottle={400}
+        >
+          {messages.map((item) => (
+            <View
+              key={item.id}
+              style={[
+                styles.messageContainer,
+                item.isUser
+                  ? styles.userMessageContainer
+                  : styles.aiMessageContainer,
+              ]}
+            >
+              {!item.isUser && (
+                <View style={styles.aiAvatar}>
+                  <Ionicons name="sparkles" size={18} color="#fff" />
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <View
                   style={[
-                    styles.messageText,
-                    item.isUser
-                      ? styles.userMessageText
-                      : styles.aiMessageText,
+                    styles.messageBubble,
+                    item.isUser ? styles.userBubble : styles.aiBubble,
                   ]}
                 >
-                  {item.text}
-                </Text>
+                  <Text
+                    style={[
+                      styles.messageText,
+                      item.isUser
+                        ? styles.userMessageText
+                        : styles.aiMessageText,
+                    ]}
+                  >
+                    {item.text}
+                  </Text>
+                </View>
+
+                {!item.isUser &&
+                  item.productos &&
+                  item.productos.length > 0 && (
+                    <View style={styles.productosContainer}>
+                      {item.productos.map((producto, index) => (
+                        <ProductCard
+                          key={`${item.id}-${index}`}
+                          producto={producto}
+                          onPress={() => navegarAProducto(producto)}
+                        />
+                      ))}
+                    </View>
+                  )}
               </View>
-
-              {!item.isUser &&
-                item.productos &&
-                item.productos.length > 0 && (
-                  <View style={styles.productosContainer}>
-                    {item.productos.map((producto, index) => (
-                      <ProductCard
-                        key={`${item.id}-${index}`}
-                        producto={producto}
-                        onPress={() => navegarAProducto(producto)}
-                      />
-                    ))}
-                  </View>
-                )}
             </View>
-          </View>
-        ))}
+          ))}
 
-        {isLoading && <TypingIndicator />}
-      </ScrollView>
+          {isLoading && <TypingIndicator />}
+        </ScrollView>
 
-      {/* ✅ NUEVO: Botón flotante para ir al final */}
-      {showScrollButton && messages.length > 3 && (
-        <TouchableOpacity
-          style={styles.scrollToBottomButton}
-          onPress={scrollToBottom}
-          activeOpacity={0.8}
+        {showScrollButton && messages.length > 3 && (
+          <TouchableOpacity
+            style={styles.scrollToBottomButton}
+            onPress={scrollToBottom}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="arrow-down" size={20} color="#fff" />
+          </TouchableOpacity>
+        )}
+
+        <View
+          style={[
+            styles.inputContainer,
+            {
+              bottom: tabBarHeight -55
+            }
+          ]}
         >
-          <Ionicons name="arrow-down" size={20} color="#fff" />
-        </TouchableOpacity>
-      )}
-
-      {/* ✅ CAMBIO: Input con transform en lugar de bottom */}
-      <Animated.View
-        style={[
-          styles.inputContainer,
-          {
-            transform: [{ translateY: inputTranslateY }],
-            bottom: tabBarHeight,
-            left: 0,
-            right: 0,
-            width: width,
-          }
-        ]}
-      >
-        <View style={styles.inputWrapper}>
-          <TextInput
-            ref={inputRef}
-            style={styles.input}
-            placeholder="¿Qué fragancia buscas hoy?..."
-            placeholderTextColor="#999"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={500}
-            editable={!isLoading}
-          />
-          {isLoading ? (
-            <TouchableOpacity
-              style={styles.stopButton}
-              onPress={detenerIA}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="stop" size={20} color="#fff" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                !inputText.trim() && styles.sendButtonDisabled,
-              ]}
-              onPress={enviarMensaje}
-              disabled={!inputText.trim()}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="send" size={20} color="#fff" />
-            </TouchableOpacity>
-          )}
+          <View style={styles.inputWrapper}>
+            <TextInput
+              ref={inputRef}
+              style={styles.input}
+              placeholder="¿Qué fragancia buscas hoy?..."
+              placeholderTextColor="#999"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={500}
+              editable={!isLoading}
+            />
+            {isLoading ? (
+              <TouchableOpacity
+                style={styles.stopButton}
+                onPress={detenerIA}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="stop" size={20} color="#fff" />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.sendButton,
+                  !inputText.trim() && styles.sendButtonDisabled,
+                ]}
+                onPress={enviarMensaje}
+                disabled={!inputText.trim()}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="send" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-      </Animated.View>
+      </KeyboardAvoidingView>
 
       <Modal
         visible={modalHistorial}
@@ -1554,9 +1464,10 @@ const styles = StyleSheet.create({
   productArrow: {
     paddingRight: 12,
   },
-  // ✅ CAMBIO: Input ahora con position absolute
   inputContainer: {
     position: "absolute",
+    left: 0,
+    right: 0,
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
@@ -1619,25 +1530,23 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  // ✅ NUEVO: Botón flotante scroll to bottom
   scrollToBottomButton: {
-  position: "absolute",
-  right: width / 2 - 16,  // ✅ Centrado
-  bottom: 150,
-  width: 32,              // ✅ Muy pequeño
-  height: 32,
-  borderRadius: 16,
-  backgroundColor: "#000",
-  justifyContent: "center",
-  alignItems: "center",
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.25,
-  shadowRadius: 4,
-  elevation: 4,
-  zIndex: 999,
-},
-
+    position: "absolute",
+    right: width / 2 - 16,
+    bottom: 150,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#000",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 999,
+  },
   typingContainer: {
     flexDirection: "row",
     marginBottom: 20,

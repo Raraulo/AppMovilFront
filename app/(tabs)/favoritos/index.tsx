@@ -18,7 +18,7 @@ import {
   Vibration,
   View
 } from "react-native";
-import { useSafeAreaInsets } from 'react-native-safe-area-context'; // ✅ NUEVO
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   addToCart,
   getCart,
@@ -29,8 +29,13 @@ import {
 import { FancyTabBar } from "../_layout";
 
 const { width, height } = Dimensions.get("window");
-const HEADER_HEIGHT = Platform.OS === 'ios' ? 130 : 115;
+const HEADER_HEIGHT = Platform.OS === 'ios' ? 150 : 120;
 const CARD_WIDTH = (width - 60) / 2;
+
+// ✅ CONFIGURACIÓN DEL MODAL
+const MODAL_TOP_MARGIN = Platform.OS === 'ios' ? 45: 35;
+const MODAL_IMAGE_HEIGHT = height * 0.50;
+const FOOTER_PADDING_BOTTOM = Platform.OS === 'ios' ? 90 : 70;
 
 const FONT_TITLE = Platform.OS === 'ios' ? 'Didot' : 'serif';
 const FONT_BODY = Platform.OS === 'ios' ? 'Georgia' : 'serif';
@@ -138,7 +143,7 @@ const ProductCardGrid = React.memo(({ item, onPress, onToggleFavorite }: any) =>
     <Animated.View style={{ transform: [{ scale: scaleAnim }], width: CARD_WIDTH, marginBottom: 32 }}>
       <TouchableOpacity onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut} activeOpacity={1} style={styles.productCard}>
         <View style={[styles.productImgBox, { height: CARD_WIDTH * 1.3 }]}>
-          <Image source={{ uri: item.url_imagen }} style={styles.productImg} resizeMode="cover" />
+          <Image source={{ uri: item.url_imagen }} style={styles.productImg} resizeMode="contain" />
           <LinearGradient colors={['transparent', 'rgba(0,0,0,0.05)']} style={StyleSheet.absoluteFill} />
           
           {item.stock === 0 && (
@@ -223,7 +228,7 @@ const brands = [
 export default function FavoritosScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const insets = useSafeAreaInsets(); // ✅ NUEVO: Hook para área segura
+  const insets = useSafeAreaInsets();
   
   const [favorites, setFavorites] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -281,7 +286,6 @@ export default function FavoritosScreen() {
     }, [])
   );
 
-  // ✅ Reabrir modal si vienen parámetros de retorno
   React.useEffect(() => {
     if (params.returnToModal && favorites.length > 0 && !loading) {
       const modalIndex = parseInt(params.returnToModal as string);
@@ -452,11 +456,7 @@ export default function FavoritosScreen() {
           )}
         />
 
-        {/* ✅ CAMBIO: Usar insets.bottom en lugar de MODAL_FOOTER_PADDING */}
-        <View style={[
-          styles.modalFooter,
-          { paddingBottom: Platform.OS === 'ios' ? insets.bottom + 20 : insets.bottom + 24 }
-        ]}>
+        <View style={[styles.modalFooter, { paddingBottom: Math.max(insets.bottom, 24) + 20 }]}>
           <TouchableOpacity
             style={[styles.addBtn, item.stock === 0 && styles.addBtnDisabled]}
             onPress={() => handleAddToCart(item)}
@@ -503,7 +503,7 @@ export default function FavoritosScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push("/(tabs)")} style={styles.backButton} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={24} color="#ffffffff" />
+          <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
         </TouchableOpacity>
         <Text style={styles.sectionTitle}>FAVORITOS</Text>
         <View style={{ width: 40 }} />
@@ -555,7 +555,7 @@ export default function FavoritosScreen() {
           <View style={styles.modalBackdrop}>
             <Toast visible={toast.visible} message={toast.message} type={toast.type} onHide={() => setToast({ ...toast, visible: false })} />
 
-            <TouchableOpacity style={styles.closeBtn} onPress={closeModal} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.closeBtn, { top: MODAL_TOP_MARGIN + 5 }]} onPress={closeModal} activeOpacity={0.8}>
               <View style={styles.closeBtnInner}>
                 <Ionicons name="close" size={28} color="#1a1a1a" />
               </View>
@@ -636,14 +636,26 @@ const styles = StyleSheet.create({
   productImgBoxColumn: { width: '100%', height: width * 0.75, position: 'relative' },
 
   modalBackdrop: { flex: 1, backgroundColor: '#fff' },
-  closeBtn: { position: 'absolute', top: 55, right: 22, zIndex: 10 },
+  closeBtn: { position: 'absolute', right: 22, zIndex: 10 },
   closeBtnInner: { backgroundColor: '#fff', borderRadius: 24, padding: 11, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 12, elevation: 8, borderWidth: 1, borderColor: '#f0f0f0' },
-  modalImageFixed: { position: 'absolute', top: 0, left: 0, right: 0, height: height * 0.48, zIndex: 1 },
+  
+  modalImageFixed: { 
+    position: 'absolute', 
+    top: MODAL_TOP_MARGIN, 
+    left: 0, 
+    right: 0, 
+    height: MODAL_IMAGE_HEIGHT, 
+    zIndex: 1,
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    overflow: 'hidden'
+  },
   modalImage: { width: '100%', height: '100%' },
   modalSoldOut: { position: 'absolute', top: '45%', left: 0, right: 0, backgroundColor: '#DC2626', paddingVertical: 14, alignItems: 'center' },
   modalSoldOutText: { color: '#fff', fontSize: 11, letterSpacing: 3, fontFamily: FONT_MODERN, fontWeight: '700' },
   modalFav: { position: 'absolute', bottom: 18, right: 18, backgroundColor: 'rgba(0,0,0,0.8)', borderRadius: 28, padding: 12, shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 12 },
-  modalContent: { padding: 28, paddingTop: height * 0.48 + 35 },
+  
+  modalContent: { padding: 28, paddingTop: MODAL_TOP_MARGIN + MODAL_IMAGE_HEIGHT + 20 },
   modalHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 20 },
   modalBrand: { fontSize: 11, color: '#999', textTransform: 'uppercase', letterSpacing: 1.8, marginBottom: 8, fontFamily: FONT_MODERN, fontWeight: '700' },
   modalTitle: { fontSize: 24, color: '#1a1a1a', lineHeight: 32, fontFamily: FONT_TITLE, fontWeight: '400', letterSpacing: 0.2 },
@@ -661,16 +673,14 @@ const styles = StyleSheet.create({
   brandLinkButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#fafafa', borderRadius: 12, padding: 20, borderWidth: 1, borderColor: '#f0f0f0', marginTop: 4 },
   brandLinkText: { fontSize: 14, color: '#1a1a1a', fontFamily: FONT_BODY, fontWeight: '600', letterSpacing: 0.2, flex: 1 },
 
-  // ✅ CAMBIO: Quitar paddingBottom estático del modalFooter
   modalFooter: { 
     position: 'absolute', 
-    bottom: 0, 
+    bottom: -70, 
     left: 0, 
     right: 0, 
     backgroundColor: '#fff', 
     paddingHorizontal: 24, 
     paddingTop: 22, 
-    // paddingBottom se añade dinámicamente con insets.bottom
     borderTopWidth: 1, 
     borderTopColor: '#f0f0f0', 
     shadowColor: '#000', 
