@@ -44,18 +44,18 @@ const SCREEN_SIZE = getScreenSize();
 
 const KEYBOARD_CONFIG = {
   small: {
-    paddingBottom: 90,
-    keyboardPadding: 80,
+    paddingBottom: 70,
+    keyboardPadding: 70,
     tabBarOffset: 50,
   },
   medium: {
-    paddingBottom: 90,
-    keyboardPadding: 100,
+    paddingBottom: 80,
+    keyboardPadding: 90,
     tabBarOffset: 60,
   },
   large: {
-    paddingBottom: 150,
-    keyboardPadding: 120,
+    paddingBottom: 100,
+    keyboardPadding: 110,
     tabBarOffset: 70,
   },
 };
@@ -766,7 +766,7 @@ INSTRUCCIONES IMPORTANTES:
           headers: {
             "Content-Type": "application/json",
             Authorization:
-              "Bearer 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",
+              "Bearer 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",
           },
           body: JSON.stringify({
             model: "sonar",
@@ -985,7 +985,7 @@ INSTRUCCIONES IMPORTANTES:
           style={styles.messagesContainer}
           contentContainerStyle={{
             padding: 16,
-            paddingBottom: tabBarHeight + 100,
+            paddingBottom: tabBarHeight + CONFIG.paddingBottom + 20,
           }}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -1061,7 +1061,7 @@ INSTRUCCIONES IMPORTANTES:
           style={[
             styles.inputContainer,
             {
-              bottom: tabBarHeight -55
+              bottom: Platform.OS === "ios" ? tabBarHeight - 10 : tabBarHeight + 10
             }
           ]}
         >
@@ -1471,43 +1471,45 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === "ios" ? 12 : 10,
+    paddingHorizontal: width < 380 ? 12 : 16,
+    paddingTop: height < 700 ? 10 : 12,
+    paddingBottom: Platform.OS === "ios" ? (height < 700 ? 8 : 10) : 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 5,
+    zIndex: 1000,
   },
   inputWrapper: {
     flexDirection: "row",
     alignItems: "flex-end",
     backgroundColor: "#FAFAFA",
-    borderRadius: 28,
-    paddingLeft: 18,
-    paddingRight: 6,
-    paddingVertical: 6,
+    borderRadius: height < 700 ? 22 : 28,
+    paddingLeft: width < 380 ? 14 : 18,
+    paddingRight: width < 380 ? 4 : 6,
+    paddingVertical: height < 700 ? 4 : 6,
     borderWidth: 1,
     borderColor: "#e8e8e8",
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: width < 380 ? 13 : 15,
     fontFamily: "PlayfairDisplay_400Regular",
     color: "#000",
-    maxHeight: 100,
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingRight: 12,
+    maxHeight: height < 700 ? 80 : 100,
+    paddingTop: height < 700 ? 8 : 10,
+    paddingBottom: height < 700 ? 8 : 10,
+    paddingRight: width < 380 ? 8 : 12,
   },
   sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: height < 700 ? 38 : 44,
+    height: height < 700 ? 38 : 44,
+    borderRadius: height < 700 ? 19 : 22,
     backgroundColor: "#000",
     justifyContent: "center",
     alignItems: "center",
+    marginLeft: width < 380 ? 4 : 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -1518,12 +1520,13 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   stopButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: height < 700 ? 38 : 44,
+    height: height < 700 ? 38 : 44,
+    borderRadius: height < 700 ? 19 : 22,
     backgroundColor: "#EF4444",
     justifyContent: "center",
     alignItems: "center",
+    marginLeft: width < 380 ? 4 : 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,

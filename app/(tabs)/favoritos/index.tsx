@@ -450,7 +450,7 @@ export default function FavoritosScreen() {
                 activeOpacity={0.85}
               >
                 <Text style={styles.brandLinkText}>Ver toda la colección {item.marca_nombre || "Maison Parfum"}</Text>
-                <Ionicons name="arrow-forward" size={20} color="#1a1a1a" />
+                <Ionicons name="arrow-forward" size={20} color="#000000ff" />
               </TouchableOpacity>
             </View>
           )}
@@ -503,7 +503,7 @@ export default function FavoritosScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.push("/(tabs)")} style={styles.backButton} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={24} color="#1a1a1a" />
+          <Ionicons name="arrow-back" size={24} color="#ffffffff" />
         </TouchableOpacity>
         <Text style={styles.sectionTitle}>FAVORITOS</Text>
         <View style={{ width: 40 }} />
