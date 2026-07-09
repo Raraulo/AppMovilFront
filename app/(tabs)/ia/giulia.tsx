@@ -1,4 +1,4 @@
-// app/(tabs)/ia/giulia.tsx - ✅ TODO SUBE CON EL TECLADO
+// app/(tabs)/ia/giulia.tsx
 import {
   PlayfairDisplay_400Regular,
   PlayfairDisplay_600SemiBold,
@@ -10,15 +10,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { ResizeMode, Video } from "expo-av";
 import { LinearGradient } from "expo-linear-gradient";
-import { useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
   Dimensions,
   Easing,
-  FlatList,
-  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -28,329 +25,73 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useApi } from "../../../contexts/ApiContext";
 
 const { width, height } = Dimensions.get("window");
 
-const getScreenSize = () => {
-  if (height < 700) return 'small';
-  if (height < 850) return 'medium';
-  return 'large';
-};
+const GEMINI_API_KEY = "AIzaSyClDb-oeNphWQrY4qeqnbt9a7qLn4RhP4E";
+const STORAGE_KEY = "giulia_conversations_v2";
 
-const SCREEN_SIZE = getScreenSize();
-
-const KEYBOARD_CONFIG = {
-  small: {
-    paddingBottom: 70,
-    keyboardPadding: 70,
-    tabBarOffset: 50,
-  },
-  medium: {
-    paddingBottom: 80,
-    keyboardPadding: 90,
-    tabBarOffset: 60,
-  },
-  large: {
-    paddingBottom: 100,
-    keyboardPadding: 110,
-    tabBarOffset: 70,
-  },
-};
-
-const CONFIG = KEYBOARD_CONFIG[SCREEN_SIZE];
+// Mensaje amigable que se muestra en el chat cuando falla la IA (incluye cuota excedida / demo)
+const DEMO_ERROR_MESSAGE =
+  "Lo siento, esta es una version demo y en este momento no puedo responder. Por favor, intente mas tarde.";
 
 interface Message {
   id: string;
   text: string;
   isUser: boolean;
-  timestamp: Date;
-  productos?: any[];
 }
 
 interface Conversation {
   id: string;
-  nombre: string;
-  fecha: Date;
-  mensajes: Message[];
+  title: string;
+  date: string;
+  messages: Message[];
 }
 
-const FEATURES = [
-  {
-    id: "1",
-    icon: "search",
-    text: "Recomendaciones personalizadas para tu estilo único",
-  },
-  {
-    id: "2",
-    icon: "chatbubbles",
-    text: "Conversación natural, fluida e intuitiva",
-  },
-  {
-    id: "3",
-    icon: "star",
-    text: "Acceso exclusivo a nuestra colección de lujo",
-  },
-];
-
+// ─── Typing dots ──────────────────────────────────────────────────────────────
 const TypingIndicator = () => {
-  const dot1 = useRef(new Animated.Value(0)).current;
-  const dot2 = useRef(new Animated.Value(0)).current;
-  const dot3 = useRef(new Animated.Value(0)).current;
+  const d1 = useRef(new Animated.Value(0)).current;
+  const d2 = useRef(new Animated.Value(0)).current;
+  const d3 = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    const animate = (dot: Animated.Value, delay: number) => {
-      return Animated.loop(
+    const anim = (d: Animated.Value, delay: number) =>
+      Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(dot, {
-            toValue: -8,
-            duration: 400,
-            easing: Easing.ease,
-            useNativeDriver: true,
-          }),
-          Animated.timing(dot, {
-            toValue: 0,
-            duration: 400,
-            easing: Easing.ease,
-            useNativeDriver: true,
-          }),
+          Animated.timing(d, { toValue: -5, duration: 350, easing: Easing.ease, useNativeDriver: true }),
+          Animated.timing(d, { toValue: 0, duration: 350, easing: Easing.ease, useNativeDriver: true }),
         ])
       );
-    };
-
-    const animation1 = animate(dot1, 0);
-    const animation2 = animate(dot2, 150);
-    const animation3 = animate(dot3, 300);
-
-    animation1.start();
-    animation2.start();
-    animation3.start();
-
-    return () => {
-      animation1.stop();
-      animation2.stop();
-      animation3.stop();
-    };
+    const a1 = anim(d1, 0);
+    const a2 = anim(d2, 120);
+    const a3 = anim(d3, 240);
+    a1.start(); a2.start(); a3.start();
+    return () => { a1.stop(); a2.stop(); a3.stop(); };
   }, []);
 
   return (
-    <View style={styles.typingContainer}>
+    <View style={styles.typingRow}>
       <View style={styles.aiAvatar}>
-        <Ionicons name="sparkles" size={18} color="#fff" />
+        <Ionicons name="sparkles" size={14} color="#C9A84C" />
       </View>
       <View style={styles.typingBubble}>
-        <View style={styles.dotsContainer}>
-          <Animated.View
-            style={[styles.dot, { transform: [{ translateY: dot1 }] }]}
-          />
-          <Animated.View
-            style={[styles.dot, { transform: [{ translateY: dot2 }] }]}
-          />
-          <Animated.View
-            style={[styles.dot, { transform: [{ translateY: dot3 }] }]}
-          />
-        </View>
+        <Animated.View style={[styles.dot, { transform: [{ translateY: d1 }] }]} />
+        <Animated.View style={[styles.dot, { transform: [{ translateY: d2 }] }]} />
+        <Animated.View style={[styles.dot, { transform: [{ translateY: d3 }] }]} />
       </View>
     </View>
   );
 };
 
-const ProductCard = ({
-  producto,
-  onPress,
-}: {
-  producto: any;
-  onPress: () => void;
-}) => (
-  <TouchableOpacity
-    style={styles.productCard}
-    onPress={onPress}
-    activeOpacity={0.7}
-  >
-    {producto.url_imagen && (
-      <Image
-        source={{ uri: producto.url_imagen }}
-        style={styles.productImage}
-        resizeMode="cover"
-      />
-    )}
-    <View style={styles.productInfo}>
-      <Text style={styles.productBrand}>{producto.marca_nombre}</Text>
-      <Text style={styles.productName} numberOfLines={2}>
-        {producto.nombre}
-      </Text>
-      <View style={styles.productDetails}>
-        <Text style={styles.productPrice}>${producto.precio}</Text>
-        {producto.tipo_nombre && (
-          <Text style={styles.productType}>{producto.tipo_nombre}</Text>
-        )}
-      </View>
-    </View>
-    <View style={styles.productArrow}>
-      <Ionicons name="chevron-forward" size={20} color="#999" />
-    </View>
-  </TouchableOpacity>
-);
-
-const SwipeableConversationItem = ({
-  conversation,
-  isActive,
-  onPress,
-  onDelete,
-  showTutorial = false,
-}: {
-  conversation: Conversation;
-  isActive: boolean;
-  onPress: () => void;
-  onDelete: () => void;
-  showTutorial?: boolean;
-}) => {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const [isSwiped, setIsSwiped] = useState(false);
-
-  useEffect(() => {
-    if (showTutorial) {
-      setTimeout(() => {
-        Animated.sequence([
-          Animated.timing(translateX, {
-            toValue: -60,
-            duration: 400,
-            easing: Easing.out(Easing.ease),
-            useNativeDriver: true,
-          }),
-          Animated.delay(1000),
-          Animated.spring(translateX, {
-            toValue: 0,
-            friction: 8,
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }, 300);
-    }
-  }, [showTutorial]);
-
-  const panResponder = useRef(
-    require("react-native").PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: (_: any, gestureState: any) => {
-        return Math.abs(gestureState.dx) > 5;
-      },
-      onPanResponderMove: (_: any, gestureState: any) => {
-        if (gestureState.dx < 0) {
-          translateX.setValue(gestureState.dx);
-        }
-      },
-      onPanResponderRelease: (_: any, gestureState: any) => {
-        if (gestureState.dx < -80) {
-          Animated.spring(translateX, {
-            toValue: -100,
-            useNativeDriver: true,
-            friction: 8,
-          }).start();
-          setIsSwiped(true);
-        } else {
-          Animated.spring(translateX, {
-            toValue: 0,
-            useNativeDriver: true,
-            friction: 8,
-          }).start();
-          setIsSwiped(false);
-        }
-      },
-    })
-  ).current;
-
-  const closeSwipe = () => {
-    Animated.spring(translateX, {
-      toValue: 0,
-      useNativeDriver: true,
-      friction: 8,
-    }).start();
-    setIsSwiped(false);
-  };
-
-  const handlePress = () => {
-    if (isSwiped) {
-      closeSwipe();
-    } else {
-      onPress();
-    }
-  };
-
-  const handleDelete = () => {
-    Animated.timing(translateX, {
-      toValue: -width,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => {
-      onDelete();
-    });
-  };
-
-  return (
-    <View style={styles.swipeableConversationContainer}>
-      <TouchableOpacity
-        style={styles.deleteBackground}
-        onPress={handleDelete}
-        activeOpacity={0.8}
-      >
-        <Ionicons name="trash" size={24} color="#fff" />
-      </TouchableOpacity>
-      <Animated.View
-        style={[
-          styles.conversationItemAnimated,
-          { transform: [{ translateX }] },
-        ]}
-        {...panResponder.panHandlers}
-      >
-        <TouchableOpacity
-          style={[
-            styles.conversationItem,
-            isActive && styles.conversationItemActive,
-          ]}
-          onPress={handlePress}
-          activeOpacity={0.7}
-        >
-          <View style={styles.conversationIcon}>
-            <Ionicons name="chatbubbles" size={20} color="#666" />
-          </View>
-          <View style={styles.conversationInfo}>
-            <Text style={styles.conversationName}>{conversation.nombre}</Text>
-            <Text style={styles.conversationDate}>
-              {conversation.fecha.toLocaleDateString("es-ES")} -{" "}
-              {conversation.mensajes.length} mensajes
-            </Text>
-          </View>
-          {isActive && (
-            <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-          )}
-        </TouchableOpacity>
-      </Animated.View>
-    </View>
-  );
-};
-
+// ─── Main screen ──────────────────────────────────────────────────────────────
 export default function GiuliaScreen() {
-  const router = useRouter();
   const apiUrl = useApi();
   const tabBarHeight = useBottomTabBarHeight();
-  const scrollViewRef = useRef<ScrollView>(null);
-  const inputRef = useRef<TextInput>(null);
-  const videoRef = useRef<Video>(null);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
-  const translateAnim = useRef(new Animated.Value(40)).current;
-
-  const [showScrollButton, setShowScrollButton] = useState(false);
-  const [activeSlide, setActiveSlide] = useState(0);
-  
-  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
-    if (viewableItems.length > 0) {
-      setActiveSlide(viewableItems[0].index || 0);
-    }
-  }).current;
+  const scrollRef = useRef<ScrollView>(null);
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_400Regular,
@@ -361,795 +102,416 @@ export default function GiuliaScreen() {
   const [isLogged, setIsLogged] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [inputText, setInputText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [productos, setProductos] = useState<any[]>([]);
-  const [conversaciones, setConversaciones] = useState<Conversation[]>([]);
-  const [conversacionActual, setConversacionActual] = useState<string | null>(null);
-  const [modalHistorial, setModalHistorial] = useState(false);
-  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [currentConvId, setCurrentConvId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
+  // ─── Auth check ─────────────────────────────────────────────────
   useEffect(() => {
-    checkAuth();
-    cargarProductos();
-    cargarConversaciones();
-  }, [apiUrl]);
-
-  useEffect(() => {
-    const cargarConversacionTemporal = async () => {
+    const checkAuth = async () => {
+      console.log("[Giulia] Verificando autenticacion...");
       try {
-        const temporal = await AsyncStorage.getItem("giulia_conversacion_temporal");
-        if (temporal) {
-          const data = JSON.parse(temporal);
-          setMessages(
-            data.mensajes.map((m: any) => ({
-              ...m,
-              timestamp: new Date(m.timestamp),
-            }))
-          );
-          setConversacionActual(data.id);
-        } else if (!conversacionActual) {
-          crearNuevaConversacion();
-        }
-      } catch (error) {
-        console.error("Error cargando conversación temporal:", error);
-        crearNuevaConversacion();
+        const user = await AsyncStorage.getItem("user");
+        const token =
+          (await AsyncStorage.getItem("access")) ||
+          (await AsyncStorage.getItem("token"));
+        const logged = !!(user && token);
+        console.log("[Giulia] isLogged:", logged);
+        setIsLogged(logged);
+      } catch (e) {
+        console.log("[Giulia] Error auth:", e);
+        setIsLogged(false);
+      } finally {
+        setCheckingAuth(false);
       }
     };
+    checkAuth();
+  }, []);
 
-    if (isLogged) {
-      cargarConversacionTemporal();
-    }
+  // ─── Load conversations from storage ────────────────────────────
+  useEffect(() => {
+    if (!isLogged) return;
+    const loadConversations = async () => {
+      console.log("[Giulia] Cargando conversaciones guardadas...");
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const convs: Conversation[] = JSON.parse(raw);
+          console.log("[Giulia] Conversaciones encontradas:", convs.length);
+          setConversations(convs);
+          // Load last conversation
+          if (convs.length > 0) {
+            setCurrentConvId(convs[0].id);
+            setMessages(convs[0].messages);
+            console.log("[Giulia] Cargando conversacion:", convs[0].title);
+          } else {
+            startNewConversation([]);
+          }
+        } else {
+          console.log("[Giulia] Sin conversaciones previas, creando nueva...");
+          startNewConversation([]);
+        }
+      } catch (e) {
+        console.log("[Giulia] Error cargando conversaciones:", e);
+        startNewConversation([]);
+      }
+    };
+    loadConversations();
   }, [isLogged]);
 
-  useEffect(() => {
-    if (conversacionActual && messages.length > 0) {
-      const timeoutId = setTimeout(() => {
-        guardarConversacionActualTemporal();
-      }, 500);
-
-      return () => clearTimeout(timeoutId);
-    }
-  }, [messages, conversacionActual]);
-
-  useEffect(() => {
-    if (!checkingAuth) {
-      Animated.parallel([
-        Animated.timing(fadeAnim, {
-          toValue: 1,
-          duration: 600,
-          useNativeDriver: true,
-          easing: Easing.out(Easing.cubic),
-        }),
-        Animated.spring(translateAnim, {
-          toValue: 0,
-          tension: 50,
-          friction: 7,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [checkingAuth]);
-
-  const handleScroll = (event: any) => {
-    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const isNearBottom = 
-      layoutMeasurement.height + contentOffset.y >= contentSize.height - 100;
-    setShowScrollButton(!isNearBottom);
-  };
-
-  const scrollToBottom = () => {
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  };
-
-  const checkAuth = async () => {
+  // ─── Save conversations whenever they change ─────────────────────
+  const saveConversations = async (convs: Conversation[]) => {
     try {
-      const storedUser = await AsyncStorage.getItem("user");
-      const access =
-        (await AsyncStorage.getItem("access")) ||
-        (await AsyncStorage.getItem("token"));
-
-      if (storedUser && access) {
-        setIsLogged(true);
-      } else {
-        setIsLogged(false);
-      }
-    } catch (error) {
-      console.error("Error verificando autenticación:", error);
-      setIsLogged(false);
-    } finally {
-      setCheckingAuth(false);
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(convs));
+      console.log("[Giulia] Conversaciones guardadas:", convs.length);
+    } catch (e) {
+      console.log("[Giulia] Error guardando conversaciones:", e);
     }
   };
 
-  const cargarProductos = async () => {
-    setLoadingProducts(true);
-    try {
-      if (!apiUrl) {
-        console.warn("⚠️ API URL no disponible");
-        return;
-      }
-
-      const res = await fetch(`${apiUrl}/api/productos/`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
-      }
-
-      const data = await res.json();
-      await AsyncStorage.setItem("giulia_productos_cache", JSON.stringify(data));
-      setProductos(data);
-    } catch (error) {
-      console.error("❌ Error cargando productos desde API:", error);
-
-      try {
-        const cache = await AsyncStorage.getItem("giulia_productos_cache");
-        if (cache) {
-          const cachedData = JSON.parse(cache);
-          setProductos(cachedData);
-        }
-      } catch (cacheError) {
-        console.error("❌ Error cargando caché:", cacheError);
-      }
-    } finally {
-      setLoadingProducts(false);
-    }
-  };
-
-  const cargarConversaciones = async () => {
-    try {
-      const saved = await AsyncStorage.getItem("giulia_conversaciones");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        const conversacionesValidas = parsed
-          .filter((c: any) => c && c.id && c.mensajes && c.mensajes.length >= 1)
-          .map((c: any) => ({
-            ...c,
-            fecha: new Date(c.fecha),
-            mensajes: c.mensajes.map((m: any) => ({
-              ...m,
-              timestamp: new Date(m.timestamp),
-            })),
-          }));
-        setConversaciones(conversacionesValidas);
-      }
-    } catch (error) {
-      console.error("Error cargando conversaciones:", error);
-      await AsyncStorage.removeItem("giulia_conversaciones");
-    }
-  };
-
-  const guardarConversaciones = async (convs: Conversation[]) => {
-    try {
-      const convsValidas = convs.filter(
-        (conv) => conv && conv.id && conv.mensajes && conv.mensajes.length >= 2
-      );
-      await AsyncStorage.setItem(
-        "giulia_conversaciones",
-        JSON.stringify(convsValidas)
-      );
-    } catch (error) {
-      console.error("Error guardando conversaciones:", error);
-    }
-  };
-
-  const guardarConversacionActualTemporal = async () => {
-    try {
-      if (conversacionActual && messages.length > 0) {
-        const conversacionData = {
-          id: conversacionActual,
-          mensajes: messages,
-        };
-        await AsyncStorage.setItem(
-          "giulia_conversacion_temporal",
-          JSON.stringify(conversacionData)
-        );
-      }
-    } catch (error) {
-      console.error("Error guardando conversación temporal:", error);
-    }
-  };
-
-  const crearNuevaConversacion = () => {
-    const welcomeMessage: Message = {
+  // ─── Start a new conversation ────────────────────────────────────
+  const startNewConversation = (existingConvs: Conversation[]) => {
+    const welcome: Message = {
       id: Date.now().toString(),
-      text: `Bienvenido a Maison Des Senteurs ✨\n\nSoy Giulia, su asesora personal de fragancias de lujo. Tengo acceso a nuestro exclusivo catálogo de ${productos.length} fragancias premium de las mejores casas del mundo.\n\n¿Qué tipo de experiencia olfativa está buscando hoy?`,
+      text: "Bienvenido. Soy Giulia, consultora especializada en fragancias. ¿En qué puedo ayudarle?",
       isUser: false,
-      timestamp: new Date(),
     };
-
-    const nuevaConv: Conversation = {
+    const newConv: Conversation = {
       id: Date.now().toString(),
-      nombre: "Nueva conversación",
-      fecha: new Date(),
-      mensajes: [welcomeMessage],
+      title: "Nueva consulta",
+      date: new Date().toLocaleDateString("es-ES"),
+      messages: [welcome],
     };
-
-    const nuevasConvs = [nuevaConv, ...conversaciones];
-    setConversaciones(nuevasConvs);
-    setConversacionActual(nuevaConv.id);
-    setMessages([welcomeMessage]);
-    guardarConversaciones(nuevasConvs);
+    const updated = [newConv, ...existingConvs];
+    setConversations(updated);
+    setCurrentConvId(newConv.id);
+    setMessages([welcome]);
+    saveConversations(updated);
+    console.log("[Giulia] Nueva conversacion creada:", newConv.id);
   };
 
-  const eliminarConversacion = async (convId: string) => {
-    try {
-      const nuevasConvs = conversaciones.filter((c) => c.id !== convId);
-      setConversaciones(nuevasConvs);
-      await guardarConversaciones(nuevasConvs);
+  const handleNewConversation = () => {
+    startNewConversation(conversations);
+  };
 
-      if (convId === conversacionActual) {
-        await AsyncStorage.removeItem("giulia_conversacion_temporal");
+  // ─── Delete conversation ─────────────────────────────────────────
+  const deleteConversation = async (id: string) => {
+    console.log("[Giulia] Eliminando conversacion:", id);
+    const updated = conversations.filter((c) => c.id !== id);
+    setConversations(updated);
+    await saveConversations(updated);
 
-        if (nuevasConvs.length > 0) {
-          const primeraConv = nuevasConvs[0];
-          setMessages(primeraConv.mensajes);
-          setConversacionActual(primeraConv.id);
-
-          await AsyncStorage.setItem(
-            "giulia_conversacion_temporal",
-            JSON.stringify({
-              id: primeraConv.id,
-              mensajes: primeraConv.mensajes,
-            })
-          );
-        } else {
-          setMessages([]);
-          setConversacionActual(null);
-          setTimeout(() => {
-            crearNuevaConversacion();
-          }, 100);
-        }
+    if (id === currentConvId) {
+      if (updated.length > 0) {
+        setCurrentConvId(updated[0].id);
+        setMessages(updated[0].messages);
+      } else {
+        startNewConversation([]);
       }
-    } catch (error) {
-      console.error("❌ Error eliminando conversación:", error);
     }
   };
 
-  const cargarMensajesConversacion = (convId: string) => {
-    const conv = conversaciones.find((c) => c.id === convId);
-    if (conv) {
-      setMessages(conv.mensajes);
-      setConversacionActual(convId);
-    }
-  };
-
-  const actualizarConversacionActual = (nuevosMensajes: Message[]) => {
-    if (!conversacionActual) return;
-
-    const nuevasConvs = conversaciones.map((c) => {
-      if (c.id === conversacionActual) {
-        let nuevoNombre = c.nombre;
-        if (c.nombre === "Nueva conversación") {
-          const primerMensajeUsuario = nuevosMensajes.find((m) => m.isUser);
-          if (primerMensajeUsuario) {
-            const palabras = primerMensajeUsuario.text
-              .trim()
-              .split(/\s+/)
-              .slice(0, 4);
-            nuevoNombre = palabras.join(" ") + "...";
-          }
-        }
+  // ─── Update current conversation in list ─────────────────────────
+  const updateConversation = (convId: string, newMessages: Message[], userText: string) => {
+    setConversations((prev) => {
+      const updated = prev.map((c) => {
+        if (c.id !== convId) return c;
         return {
           ...c,
-          nombre: nuevoNombre,
-          mensajes: nuevosMensajes,
-          fecha: new Date(),
+          title: c.title === "Nueva consulta" ? userText.slice(0, 30) + "..." : c.title,
+          messages: newMessages,
         };
-      }
-      return c;
+      });
+      saveConversations(updated);
+      return updated;
     });
-
-    setConversaciones(nuevasConvs);
-    guardarConversaciones(nuevasConvs);
   };
 
-  const extraerProductosRecomendados = (
-    respuesta: string,
-    productosDisponibles: any[]
-  ): any[] => {
-    const productosEncontrados: any[] = [];
-    const productosConStock: any[] = [];
+  // ─── Send message to Gemini ──────────────────────────────────────
+  const sendMessage = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
 
-    productosDisponibles.forEach((producto) => {
-      const nombreCompleto = `${producto.nombre} ${producto.marca_nombre}`.toLowerCase();
-      const respuestaLower = respuesta.toLowerCase();
+    const userMsg: Message = { id: Date.now().toString(), text, isUser: true };
+    const nextMessages = [...messages, userMsg];
+    setMessages(nextMessages);
+    setInput("");
+    setLoading(true);
+    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
-      if (
-        respuestaLower.includes(producto.nombre.toLowerCase()) ||
-        respuestaLower.includes(nombreCompleto)
-      ) {
-        if (producto.stock > 0) {
-          productosConStock.push(producto);
-        } else {
-          productosEncontrados.push(producto);
-        }
-      }
-    });
-
-    return [...productosConStock, ...productosEncontrados].slice(0, 3);
-  };
-
-  const navegarAProducto = (producto: any) => {
-    router.push(`/marcas/${producto.marca_nombre}`);
-  };
-
-  const enviarMensaje = async () => {
-    if (!inputText.trim() || isLoading) return;
-
-    if (productos.length === 0) {
-      const errorMessage: Message = {
-        id: Date.now().toString(),
-        text: "Disculpe, estoy teniendo problemas para acceder al catálogo en este momento. Por favor, intente nuevamente en unos instantes.",
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages([...messages, errorMessage]);
-      return;
-    }
-
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputText.trim(),
-      isUser: true,
-      timestamp: new Date(),
-    };
-
-    const updatedMessages = [...messages, userMessage];
-    setMessages(updatedMessages);
-    const consultaUsuario = inputText.trim();
-    setInputText("");
-    setIsLoading(true);
-
-    setTimeout(() => {
-      scrollToBottom();
-    }, 100);
+    console.log("[Giulia] Enviando mensaje a Gemini:", text.slice(0, 50));
 
     try {
-      const consultaLower = consultaUsuario.toLowerCase();
-      const esMasculino =
-        /\b(hombre|masculino|caballero|él|para él|him|men)\b/i.test(consultaLower);
-      const esFemenino =
-        /\b(mujer|femenino|dama|ella|para ella|her|women)\b/i.test(consultaLower);
+      const systemText =
+        "Eres Giulia, consultora experta en fragancias de lujo. " +
+        "Responde exclusivamente sobre perfumes, notas olfativas, marcas, tipos de fragancia (EDT, EDP, etc.), " +
+        "consejos de uso, conservacion y tendencias. " +
+        "Tu tono es profesional, elegante y conciso. " +
+        "No uses emojis. No uses asteriscos ni formato markdown. " +
+        "Escribe en texto plano, oraciones cortas y directas. " +
+        "Si el usuario pregunta algo que no sea sobre fragancias, indica amablemente que tu especialidad son los perfumes.";
 
-      let productosRelevantes = productos.filter((p) => p.stock > 0);
+      // Build contents: only messages that already exist (exclude welcome if only 1 message)
+      const geminiContents = nextMessages
+        .filter((m) => !(m.isUser === false && nextMessages.indexOf(m) === 0 && nextMessages.length <= 2))
+        .map((m) => ({
+          role: m.isUser ? "user" : "model",
+          parts: [{ text: m.text }],
+        }));
 
-      if (esMasculino && !esFemenino) {
-        productosRelevantes = productosRelevantes.filter(
-          (p) => p.genero === "Masculino" || p.genero === "Unisex"
-        );
-      } else if (esFemenino && !esMasculino) {
-        productosRelevantes = productosRelevantes.filter(
-          (p) => p.genero === "Femenino" || p.genero === "Unisex"
-        );
-      }
+      // Ensure first message is from user
+      const firstUserIdx = geminiContents.findIndex((c) => c.role === "user");
+      const validContents = firstUserIdx >= 0 ? geminiContents.slice(firstUserIdx) : geminiContents;
 
-      productosRelevantes = productosRelevantes
-        .sort((a, b) => b.stock - a.stock)
-        .slice(0, 15);
+      console.log("[Giulia] Contenidos para Gemini:", validContents.length, "turnos");
 
-      const inventarioTexto = productosRelevantes
-        .map(
-          (p) =>
-            `${p.nombre} de ${p.marca_nombre} (${p.tipo_nombre}): $${p.precio}. Stock: ${p.stock}. ${p.descripcion || ""
-            }`
-        )
-        .join("\n");
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+      console.log("[Giulia] Llamando a:", url.replace(GEMINI_API_KEY, "***"));
 
-      const prompt = `Eres Giulia, experta consultora de fragancias de lujo de Maison Des Senteurs.
-
-INVENTARIO DISPONIBLE (${productosRelevantes.length} fragancias con stock):
-${inventarioTexto}
-
-CONSULTA DEL CLIENTE: ${consultaUsuario}
-
-INSTRUCCIONES IMPORTANTES:
-- Recomienda ÚNICAMENTE fragancias del inventario proporcionado arriba
-- NO uses asteriscos, negritas ni formato markdown
-- Escribe en texto plano y elegante con un tono profesional
-- Máximo 3 recomendaciones específicas
-- Menciona el nombre EXACTO del perfume y la marca tal como aparece en el inventario
-- Explica brevemente por qué cada fragancia es adecuada para lo que busca el cliente
-- Si mencionas precio o stock, usa la información exacta del inventario
-- Usa emojis sutiles solo para dar elegancia (✨🌸💎)
-- Si el cliente pregunta por algo no disponible, ofrece alternativas similares del inventario`;
-
-      const response = await fetch(
-        "https://api.perplexity.ai/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization:
-              "Bearer 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",
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: validContents,
+          systemInstruction: {
+            parts: [{ text: systemText }],
           },
-          body: JSON.stringify({
-            model: "sonar",
-            messages: [
-              {
-                role: "system",
-                content:
-                  "Eres Giulia, asesora de fragancias de lujo de Maison Des Senteurs. Respondes en texto plano sin asteriscos ni formato markdown. Escribe de forma elegante, profesional y personalizada. Tu objetivo es ayudar a los clientes a encontrar la fragancia perfecta del inventario disponible.",
-              },
-              {
-                role: "user",
-                content: prompt,
-              },
-            ],
-            max_tokens: 600,
-            temperature: 0.7,
-          }),
-        }
-      );
+          generationConfig: {
+            temperature: 0.6,
+            maxOutputTokens: 500,
+          },
+        }),
+      });
+
+      console.log("[Giulia] HTTP status:", response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error("❌ Error API:", errorText);
-        throw new Error(
-          `Error ${response.status}: No se pudo conectar con el servicio de IA`
-        );
+        const errText = await response.text();
+        console.log("[Giulia] Error HTTP de Gemini:", errText);
+        // Cualquier error HTTP (incluyendo 429 de cuota excedida) se maneja
+        // de forma amigable en el catch de abajo.
+        throw new Error(`Gemini HTTP ${response.status}`);
       }
 
       const data = await response.json();
-      let aiResponse =
-        data.choices[0]?.message?.content ||
-        "Disculpe, no pude procesar su solicitud en este momento.";
+      console.log("[Giulia] Respuesta recibida. Candidatos:", data.candidates?.length ?? 0);
 
-      aiResponse = aiResponse
+      let aiText =
+        data.candidates?.[0]?.content?.parts?.[0]?.text ??
+        "";
+
+      if (!aiText) {
+        // No vino texto util en la respuesta: mostramos el mensaje de demo
+        throw new Error("Respuesta vacia de Gemini");
+      }
+
+      // Clean any markdown that slipped through
+      aiText = aiText
         .replace(/\*\*/g, "")
         .replace(/\*/g, "")
-        .replace(/#{1,6}\s/g, "")
-        .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1");
+        .replace(/^#{1,6}\s+/gm, "")
+        .trim();
 
-      const productosRecomendados = extraerProductosRecomendados(
-        aiResponse,
-        productosRelevantes
-      );
+      console.log("[Giulia] Respuesta limpia:", aiText.slice(0, 80));
 
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: aiResponse,
-        isUser: false,
-        timestamp: new Date(),
-        productos: productosRecomendados,
-      };
-
-      const finalMessages = [...updatedMessages, aiMessage];
+      const aiMsg: Message = { id: (Date.now() + 1).toString(), text: aiText, isUser: false };
+      const finalMessages = [...nextMessages, aiMsg];
       setMessages(finalMessages);
-      actualizarConversacionActual(finalMessages);
+      updateConversation(currentConvId!, finalMessages, text);
 
-      setTimeout(() => {
-        scrollToBottom();
-      }, 300);
-    } catch (error: any) {
-      console.error("❌ Error completo:", error);
-      const errorMessage: Message = {
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
+    } catch (e: any) {
+      console.log("[Giulia] Error enviando mensaje:", e?.message ?? e);
+      // Mensaje amigable directo en el chat: version demo, intente mas tarde.
+      const errMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: "Disculpe, hubo un problema técnico al procesar su consulta. Por favor, verifique su conexión a internet e intente nuevamente.",
+        text: DEMO_ERROR_MESSAGE,
         isUser: false,
-        timestamp: new Date(),
       };
-      const finalMessages = [...updatedMessages, errorMessage];
+      const finalMessages = [...nextMessages, errMsg];
       setMessages(finalMessages);
-      actualizarConversacionActual(finalMessages);
+      updateConversation(currentConvId!, finalMessages, text);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 300);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const detenerIA = () => {
-    setIsLoading(false);
-  };
-
-  const renderCarouselItem = ({ item }: { item: any }) => (
-    <View style={styles.carouselItem}>
-      <View style={styles.carouselIconContainer}>
-        <Ionicons name={item.icon as any} size={40} color="#fff" />
-      </View>
-      <Text style={styles.carouselText}>{item.text}</Text>
-    </View>
-  );
-
+  // ─── Guards ──────────────────────────────────────────────────────
   if (!fontsLoaded || checkingAuth) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#000" />
-        <Text style={styles.loadingText}>Iniciando Giulia AI...</Text>
+      <View style={[styles.container, styles.center]}>
+        <ActivityIndicator size="large" color="#C9A84C" />
       </View>
     );
   }
 
   if (!isLogged) {
     return (
-      <Animated.View
-        style={[
-          styles.notLoggedContainer,
-          { opacity: fadeAnim, transform: [{ translateY: translateAnim }] },
-        ]}
-      >
+      <View style={styles.videoContainer}>
+        <StatusBar barStyle="light-content" translucent backgroundColor="transparent" />
         <Video
-          ref={videoRef}
           source={require("../../../assets/images/giulia.mp4")}
-          style={styles.videoBackground}
+          style={StyleSheet.absoluteFill}
           resizeMode={ResizeMode.COVER}
           shouldPlay
           isLooping
           isMuted
           useNativeControls={false}
         />
-
         <LinearGradient
-          colors={["rgba(0,0,0,0)", "rgba(0,0,0,0.4)", "rgba(0,0,0,0.8)"]}
-          style={styles.videoOverlay}
+          colors={["rgba(0,0,0,0.15)", "rgba(0,0,0,0.45)", "rgba(0,0,0,0.15)"]}
+          style={StyleSheet.absoluteFill}
         />
-
-        <View style={styles.notLoggedContent}>
-          <View style={styles.aiIconContainer}>
-            <Ionicons name="sparkles" size={60} color="#fff" />
-          </View>
-
-          <Text style={styles.notLoggedTitle}>Conoce a Giulia AI</Text>
-          <Text style={styles.notLoggedSubtitle}>
-            Tu asesora personal de fragancias de lujo
-          </Text>
-
-          <View style={styles.carouselContainer}>
-            <FlatList
-              data={FEATURES}
-              renderItem={renderCarouselItem}
-              keyExtractor={(item) => item.id}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onViewableItemsChanged={onViewableItemsChanged}
-              viewabilityConfig={{ itemVisiblePercentThreshold: 50 }}
-              scrollEventThrottle={16}
-            />
-            <View style={styles.paginationContainer}>
-              {FEATURES.map((_, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.paginationDot,
-                    activeSlide === index
-                      ? styles.paginationDotActive
-                      : styles.paginationDotInactive,
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
-
-          <Text style={styles.loginPrompt}>
-            Por favor inicia sesión para acceder a la experiencia completa
-          </Text>
+        <View style={styles.videoContent}>
+          <Ionicons name="sparkles" size={48} color="#C9A84C" style={{ marginBottom: 18 }} />
+          <Text style={styles.videoTitle}>Giulia</Text>
+          <Text style={styles.videoSubtitle}>Consultora Personal de Fragancias</Text>
+          <View style={styles.videoDivider} />
+          <Text style={styles.videoHint}>Inicie sesion para acceder</Text>
         </View>
-      </Animated.View>
+      </View>
     );
   }
 
+  // ─── Main UI ─────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
 
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
+        <View>
           <Text style={styles.headerTitle}>Giulia</Text>
-          <Text style={styles.headerSubtitle}>
-            Asesora de fragancias de lujo
-          </Text>
+          <Text style={styles.headerSub}>Consultora de fragancias</Text>
         </View>
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            onPress={cargarProductos}
-            style={styles.refreshButton}
-            activeOpacity={0.7}
-            disabled={loadingProducts}
-          >
-            {loadingProducts ? (
-              <ActivityIndicator size="small" color="#000" />
-            ) : (
-              <Ionicons name="refresh" size={22} color="#000" />
-            )}
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.headerBtn} onPress={() => setShowHistory(true)}>
+            <Ionicons name="time-outline" size={22} color="#C9A84C" />
           </TouchableOpacity>
-          <TouchableOpacity
-            onPress={crearNuevaConversacion}
-            style={styles.newChatButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="add" size={24} color="#000" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            onPress={() => setModalHistorial(true)}
-            style={styles.historyButton}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="time-outline" size={24} color="#000" />
+          <TouchableOpacity style={styles.headerBtnPrimary} onPress={handleNewConversation}>
+            <Ionicons name="add" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* 🔥 AQUÍ ESTÁ EL CAMBIO PRINCIPAL: KeyboardAvoidingView envuelve TODO */}
+      {/* Chat + Input */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 5 : 5}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 88 : 0}
       >
         <ScrollView
-          ref={scrollViewRef}
-          style={styles.messagesContainer}
-          contentContainerStyle={{
-            padding: 16,
-            paddingBottom: tabBarHeight + CONFIG.paddingBottom + 20,
-          }}
-          showsVerticalScrollIndicator={false}
+          ref={scrollRef}
+          style={styles.chatArea}
+          contentContainerStyle={{ padding: 16, paddingBottom: tabBarHeight + 16 }}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          onScroll={handleScroll}
-          scrollEventThrottle={400}
         >
-          {messages.map((item) => (
+          {messages.map((msg) => (
             <View
-              key={item.id}
+              key={msg.id}
               style={[
-                styles.messageContainer,
-                item.isUser
-                  ? styles.userMessageContainer
-                  : styles.aiMessageContainer,
+                styles.msgRow,
+                msg.isUser ? styles.msgRowUser : styles.msgRowAi,
               ]}
             >
-              {!item.isUser && (
+              {!msg.isUser && (
                 <View style={styles.aiAvatar}>
-                  <Ionicons name="sparkles" size={18} color="#fff" />
+                  <Ionicons name="sparkles" size={13} color="#C9A84C" />
                 </View>
               )}
-              <View style={{ flex: 1 }}>
-                <View
-                  style={[
-                    styles.messageBubble,
-                    item.isUser ? styles.userBubble : styles.aiBubble,
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      item.isUser
-                        ? styles.userMessageText
-                        : styles.aiMessageText,
-                    ]}
-                  >
-                    {item.text}
-                  </Text>
-                </View>
-
-                {!item.isUser &&
-                  item.productos &&
-                  item.productos.length > 0 && (
-                    <View style={styles.productosContainer}>
-                      {item.productos.map((producto, index) => (
-                        <ProductCard
-                          key={`${item.id}-${index}`}
-                          producto={producto}
-                          onPress={() => navegarAProducto(producto)}
-                        />
-                      ))}
-                    </View>
-                  )}
+              <View
+                style={[
+                  styles.bubble,
+                  msg.isUser ? styles.bubbleUser : styles.bubbleAi,
+                ]}
+              >
+                <Text style={msg.isUser ? styles.textUser : styles.textAi}>
+                  {msg.text}
+                </Text>
               </View>
             </View>
           ))}
-
-          {isLoading && <TypingIndicator />}
+          {loading && <TypingIndicator />}
         </ScrollView>
 
-        {showScrollButton && messages.length > 3 && (
+        {/* Input bar */}
+        <View style={[styles.inputBar, { paddingBottom: tabBarHeight + 10, marginBottom: 0 }]}>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Escriba su consulta..."
+            placeholderTextColor="#BBBBBB"
+            value={input}
+            onChangeText={setInput}
+            multiline
+            editable={!loading}
+            returnKeyType="send"
+            onSubmitEditing={sendMessage}
+          />
           <TouchableOpacity
-            style={styles.scrollToBottomButton}
-            onPress={scrollToBottom}
-            activeOpacity={0.8}
+            style={[styles.sendBtn, (!input.trim() || loading) && styles.sendBtnDisabled]}
+            onPress={sendMessage}
+            disabled={!input.trim() || loading}
           >
-            <Ionicons name="arrow-down" size={20} color="#fff" />
-          </TouchableOpacity>
-        )}
-
-        <View
-          style={[
-            styles.inputContainer,
-            {
-              bottom: Platform.OS === "ios" ? tabBarHeight - 10 : tabBarHeight + 10
-            }
-          ]}
-        >
-          <View style={styles.inputWrapper}>
-            <TextInput
-              ref={inputRef}
-              style={styles.input}
-              placeholder="¿Qué fragancia buscas hoy?..."
-              placeholderTextColor="#999"
-              value={inputText}
-              onChangeText={setInputText}
-              multiline
-              maxLength={500}
-              editable={!isLoading}
-            />
-            {isLoading ? (
-              <TouchableOpacity
-                style={styles.stopButton}
-                onPress={detenerIA}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="stop" size={20} color="#fff" />
-              </TouchableOpacity>
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <TouchableOpacity
-                style={[
-                  styles.sendButton,
-                  !inputText.trim() && styles.sendButtonDisabled,
-                ]}
-                onPress={enviarMensaje}
-                disabled={!inputText.trim()}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="send" size={20} color="#fff" />
-              </TouchableOpacity>
+              <Ionicons name="send" size={17} color="#fff" />
             )}
-          </View>
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
 
-      <Modal
-        visible={modalHistorial}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setModalHistorial(false)}
-      >
+      {/* History Modal */}
+      <Modal visible={showHistory} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Historial</Text>
-              <TouchableOpacity
-                onPress={() => setModalHistorial(false)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="close" size={28} color="#000" />
+              <TouchableOpacity onPress={() => setShowHistory(false)}>
+                <Ionicons name="close" size={24} color="#333" />
               </TouchableOpacity>
             </View>
-            <ScrollView
-              style={styles.conversationsList}
-              showsVerticalScrollIndicator={false}
-            >
-              {conversaciones.length === 0 ? (
-                <View style={styles.emptyHistory}>
-                  <Ionicons
-                    name="chatbubbles-outline"
-                    size={60}
-                    color="#ddd"
-                  />
-                  <Text style={styles.emptyHistoryText}>
-                    No hay conversaciones guardadas
-                  </Text>
-                  <Text style={styles.emptyHistorySubtext}>
-                    Tus consultas con Giulia aparecerán aquí
-                  </Text>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {conversations.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="chatbubbles-outline" size={44} color="#DDD" />
+                  <Text style={styles.emptyText}>Sin conversaciones guardadas</Text>
                 </View>
               ) : (
-                conversaciones.map((conv, index) => (
-                  <SwipeableConversationItem
-                    key={conv.id}
-                    conversation={conv}
-                    isActive={conversacionActual === conv.id}
-                    onPress={() => {
-                      cargarMensajesConversacion(conv.id);
-                      setModalHistorial(false);
-                    }}
-                    onDelete={() => eliminarConversacion(conv.id)}
-                    showTutorial={index === 0 && conversaciones.length === 1}
-                  />
+                conversations.map((conv) => (
+                  <View key={conv.id} style={styles.convRow}>
+                    <TouchableOpacity
+                      style={[
+                        styles.convItem,
+                        conv.id === currentConvId && styles.convItemActive,
+                      ]}
+                      onPress={() => {
+                        setMessages(conv.messages);
+                        setCurrentConvId(conv.id);
+                        setShowHistory(false);
+                        console.log("[Giulia] Cargando conversacion:", conv.title);
+                      }}
+                    >
+                      <Ionicons name="chatbubble-outline" size={18} color="#C9A84C" />
+                      <View style={{ marginLeft: 10, flex: 1 }}>
+                        <Text style={styles.convTitle} numberOfLines={1}>
+                          {conv.title}
+                        </Text>
+                        <Text style={styles.convDate}>{conv.date}</Text>
+                      </View>
+                    </TouchableOpacity>
+                    {/* Delete button */}
+                    <TouchableOpacity
+                      style={styles.deleteBtn}
+                      onPress={() => deleteConversation(conv.id)}
+                    >
+                      <Ionicons name="trash-outline" size={18} color="#EF4444" />
+                    </TouchableOpacity>
+                  </View>
                 ))
               )}
             </ScrollView>
@@ -1160,524 +522,271 @@ INSTRUCCIONES IMPORTANTES:
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FAFAFA",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FAFAFA",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "#666",
-  },
-  notLoggedContainer: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  videoBackground: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: width,
-    height: height,
-  },
-  videoOverlay: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: "100%",
-  },
-  notLoggedContent: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingBottom: 40,
-    paddingTop: 80,
-  },
-  aiIconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: "rgba(255,255,255,0.15)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
-  },
-  notLoggedTitle: {
-    fontSize: 32,
-    fontFamily: "PlayfairDisplay_700Bold",
-    color: "#fff",
-    textAlign: "center",
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  notLoggedSubtitle: {
-    fontSize: 16,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "rgba(255,255,255,0.8)",
-    textAlign: "center",
-    marginBottom: 40,
-    letterSpacing: 0.5,
-  },
-  carouselContainer: {
-    height: 160,
-    width: "100%",
-    marginBottom: 20,
-  },
-  carouselItem: {
-    width: width,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 40,
-  },
-  carouselIconContainer: {
-    marginBottom: 15,
-  },
-  carouselText: {
-    fontSize: 18,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "#fff",
-    textAlign: "center",
-    lineHeight: 26,
-  },
-  paginationContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    marginTop: 10,
-  },
-  paginationDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-  },
-  paginationDotActive: {
-    backgroundColor: "#fff",
-    width: 10,
-    height: 10,
-  },
-  paginationDotInactive: {
-    backgroundColor: "rgba(255,255,255,0.3)",
-  },
-  loginPrompt: {
-    fontSize: 12,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "rgba(255,255,255,0.6)",
-    textAlign: "center",
-    marginTop: 20,
-    marginBottom: 20,
-    paddingHorizontal: 40,
-  },
+  container: { flex: 1, backgroundColor: "#fff" },
+  center: { justifyContent: "center", alignItems: "center" },
+  bigText: { fontSize: 22, fontFamily: "PlayfairDisplay_700Bold", color: "#1A1A1A" },
+  subtleText: { fontSize: 14, color: "#999", marginTop: 6 },
+
+  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 70 : 40,
-    paddingBottom: 10,
+    paddingTop: Platform.OS === "ios" ? 32 : 28,
+    paddingBottom: 12,
+    paddingHorizontal: 20,
     backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    borderBottomColor: "#F0EBE0",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
-  },
-  headerLeft: {
-    flex: 1,
   },
   headerTitle: {
     fontSize: 24,
     fontFamily: "PlayfairDisplay_700Bold",
-    color: "#000",
-    letterSpacing: 0.5,
+    color: "#1A1A1A",
   },
-  headerSubtitle: {
+  headerSub: {
     fontSize: 11,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "#666",
+    color: "#C9A84C",
+    letterSpacing: 0.5,
     marginTop: 2,
-    letterSpacing: 0.3,
   },
-  headerButtons: {
-    flexDirection: "row",
-    gap: 6,
-  },
-  refreshButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#f5f5f5",
+  headerActions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerBtn: { padding: 6 },
+  headerBtnPrimary: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#C9A84C",
     justifyContent: "center",
     alignItems: "center",
   },
-  newChatButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  historyButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  messagesContainer: {
-    flex: 1,
-  },
-  messageContainer: {
+
+  // Chat
+  chatArea: { flex: 1, backgroundColor: "#FAFAF8" },
+  msgRow: {
     flexDirection: "row",
     marginBottom: 16,
-    alignItems: "flex-start",
+    alignItems: "flex-end",
   },
-  userMessageContainer: {
-    justifyContent: "flex-end",
-  },
-  aiMessageContainer: {
-    justifyContent: "flex-start",
-  },
+  msgRowUser: { justifyContent: "flex-end" },
+  msgRowAi: { justifyContent: "flex-start" },
   aiAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#000",
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#FFF8EC",
+    borderWidth: 1.5,
+    borderColor: "#C9A84C",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
-    marginTop: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    marginRight: 8,
   },
-  messageBubble: {
-    maxWidth: "85%",
-    padding: 16,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
+  bubble: {
+    maxWidth: "78%",
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    borderRadius: 18,
   },
-  userBubble: {
-    backgroundColor: "#000",
+  bubbleUser: {
+    backgroundColor: "#1A1A1A",
     borderBottomRightRadius: 4,
-    alignSelf: "flex-end",
   },
-  aiBubble: {
+  bubbleAi: {
     backgroundColor: "#fff",
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: "#f0f0f0",
-  },
-  messageText: {
-    fontSize: 15,
-    lineHeight: 24,
-    fontFamily: "PlayfairDisplay_400Regular",
-  },
-  userMessageText: {
-    color: "#fff",
-  },
-  aiMessageText: {
-    color: "#1a1a1a",
-  },
-  productosContainer: {
-    marginTop: 16,
-  },
-  productCard: {
-    flexDirection: "row",
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    overflow: "hidden",
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
+    borderColor: "#EDE8DF",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 10,
-    alignItems: "center",
-  },
-  productImage: {
-    width: 90,
-    height: 90,
-    backgroundColor: "#f5f5f5",
-  },
-  productInfo: {
-    flex: 1,
-    padding: 12,
-    justifyContent: "center",
-  },
-  productBrand: {
-    fontSize: 11,
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    color: "#666",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  productName: {
-    fontSize: 14,
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    color: "#000",
-    marginTop: 2,
-    marginBottom: 6,
-  },
-  productDetails: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  productPrice: {
-    fontSize: 16,
-    fontFamily: "PlayfairDisplay_700Bold",
-    color: "#000",
-  },
-  productType: {
-    fontSize: 10,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "#999",
-    backgroundColor: "#f5f5f5",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  productArrow: {
-    paddingRight: 12,
-  },
-  inputContainer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-    paddingHorizontal: width < 380 ? 12 : 16,
-    paddingTop: height < 700 ? 10 : 12,
-    paddingBottom: Platform.OS === "ios" ? (height < 700 ? 8 : 10) : 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 5,
-    zIndex: 1000,
+    shadowRadius: 2,
+    elevation: 1,
   },
-  inputWrapper: {
+  textUser: {
+    color: "#fff",
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: "PlayfairDisplay_400Regular",
+  },
+  textAi: {
+    color: "#1A1A1A",
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: "PlayfairDisplay_400Regular",
+  },
+
+  // Typing
+  typingRow: {
     flexDirection: "row",
     alignItems: "flex-end",
-    backgroundColor: "#FAFAFA",
-    borderRadius: height < 700 ? 22 : 28,
-    paddingLeft: width < 380 ? 14 : 18,
-    paddingRight: width < 380 ? 4 : 6,
-    paddingVertical: height < 700 ? 4 : 6,
-    borderWidth: 1,
-    borderColor: "#e8e8e8",
-  },
-  input: {
-    flex: 1,
-    fontSize: width < 380 ? 13 : 15,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "#000",
-    maxHeight: height < 700 ? 80 : 100,
-    paddingTop: height < 700 ? 8 : 10,
-    paddingBottom: height < 700 ? 8 : 10,
-    paddingRight: width < 380 ? 8 : 12,
-  },
-  sendButton: {
-    width: height < 700 ? 38 : 44,
-    height: height < 700 ? 38 : 44,
-    borderRadius: height < 700 ? 19 : 22,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: width < 380 ? 4 : 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sendButtonDisabled: {
-    opacity: 0.4,
-  },
-  stopButton: {
-    width: height < 700 ? 38 : 44,
-    height: height < 700 ? 38 : 44,
-    borderRadius: height < 700 ? 19 : 22,
-    backgroundColor: "#EF4444",
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: width < 380 ? 4 : 6,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  scrollToBottomButton: {
-    position: "absolute",
-    right: width / 2 - 16,
-    bottom: 150,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#000",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 4,
-    zIndex: 999,
-  },
-  typingContainer: {
-    flexDirection: "row",
-    marginBottom: 20,
-    alignItems: "flex-start",
+    marginBottom: 16,
   },
   typingBubble: {
-    backgroundColor: "#fff",
-    borderRadius: 20,
-    borderBottomLeftRadius: 4,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  dotsContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#EDE8DF",
+    borderRadius: 18,
+    borderBottomLeftRadius: 4,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#666",
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "#C9A84C",
   },
+
+  // Input bar
+  inputBar: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    backgroundColor: "#fff",
+    borderTopWidth: 1,
+    borderTopColor: "#EDE8DF",
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  textInput: {
+    flex: 1,
+    backgroundColor: "#F5F0EB",
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    fontSize: 15,
+    fontFamily: "PlayfairDisplay_400Regular",
+    color: "#1A1A1A",
+    maxHeight: 100,
+    borderWidth: 1,
+    borderColor: "#EDE8DF",
+  },
+  sendBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#C9A84C",
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 10,
+    shadowColor: "#C9A84C",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sendBtnDisabled: {
+    backgroundColor: "#DDDDDD",
+    shadowOpacity: 0,
+  },
+
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.45)",
     justifyContent: "flex-end",
   },
-  modalContent: {
+  modalSheet: {
     backgroundColor: "#fff",
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
-    paddingTop: 20,
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 40 : 20,
-    maxHeight: height * 0.8,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 22,
+    maxHeight: "75%",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 18,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontFamily: "PlayfairDisplay_700Bold",
-    color: "#000",
+    color: "#1A1A1A",
   },
-  conversationsList: {
-    maxHeight: height * 0.6,
-  },
-  emptyHistory: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 60,
-  },
-  emptyHistoryText: {
-    fontSize: 16,
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    color: "#999",
-    marginTop: 16,
-  },
-  emptyHistorySubtext: {
-    fontSize: 13,
-    fontFamily: "PlayfairDisplay_400Regular",
-    color: "#ccc",
-    marginTop: 8,
-  },
-  swipeableConversationContainer: {
-    marginBottom: 12,
-    position: "relative",
-  },
-  deleteBackground: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    width: 100,
-    backgroundColor: "#EF4444",
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  conversationItemAnimated: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-  },
-  conversationItem: {
+  emptyState: { alignItems: "center", paddingVertical: 40 },
+  emptyText: { color: "#BBB", marginTop: 10, fontSize: 14 },
+
+  // Conversation row
+  convRow: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#f0f0f0",
-  },
-  conversationItemActive: {
-    backgroundColor: "#f0fdf4",
-    borderColor: "#10B981",
-  },
-  conversationIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f5f5f5",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-  },
-  conversationInfo: {
-    flex: 1,
-  },
-  conversationName: {
-    fontSize: 16,
-    fontFamily: "PlayfairDisplay_600SemiBold",
-    color: "#000",
     marginBottom: 4,
   },
-  conversationDate: {
-    fontSize: 12,
+  convItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  convItemActive: {
+    backgroundColor: "#FFF8EC",
+  },
+  convTitle: {
+    fontSize: 14,
+    fontFamily: "PlayfairDisplay_600SemiBold",
+    color: "#1A1A1A",
+  },
+  convDate: { fontSize: 11, color: "#BBB", marginTop: 2 },
+  deleteBtn: {
+    padding: 10,
+  },
+
+  // Video (not logged in) — todo el contenido centrado en la pantalla
+  videoContainer: {
+    flex: 1,
+    backgroundColor: "#000",
+  },
+  videoContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+  },
+  videoTitle: {
+    fontSize: 42,
+    fontFamily: "PlayfairDisplay_700Bold",
+    color: "#FFFFFF",
+    letterSpacing: 1,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  videoSubtitle: {
+    fontSize: 15,
     fontFamily: "PlayfairDisplay_400Regular",
-    color: "#666",
+    color: "rgba(255,255,255,0.75)",
+    textAlign: "center",
+    letterSpacing: 0.5,
+  },
+  videoDivider: {
+    width: 40,
+    height: 1,
+    backgroundColor: "#C9A84C",
+    marginTop: 24,
+    marginBottom: 24,
+  },
+  videoHint: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.55)",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    textAlign: "center",
   },
 });

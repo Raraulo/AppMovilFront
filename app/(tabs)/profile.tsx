@@ -377,7 +377,10 @@ export default function ProfileScreen() {
       setIsLogged(true);
       const userData = JSON.parse(storedUser);
       const res = await fetch(`${apiUrl}/api/clientes/`, {
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${access}`,
+        } as any,
       });
 
       if (!res.ok) throw new Error("No se pudo cargar clientes");

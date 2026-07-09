@@ -3,11 +3,11 @@ import { Platform } from 'react-native';
 
 const DEVELOPMENT_IP = '192.168.1.5';
 const API_PORT = 8000;
-const PRODUCTION_URL = 'https://appmovilback-production.up.railway.app';
+const PRODUCTION_URL = 'https://appmovilback-1.onrender.com';
 
 export const getApiUrl = () => {
-  // ✅ FORZAR RAILWAY SIEMPRE (temporal para testing)
-  console.log('🚀 Usando Railway:', PRODUCTION_URL);
+  // ✅ FORZAR RENDER SIEMPRE (temporal para testing)
+  console.log('🚀 Usando Render:', PRODUCTION_URL);
   return PRODUCTION_URL;
   
   /* COMENTAR ESTO TEMPORALMENTE
