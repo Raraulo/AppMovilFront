@@ -17,7 +17,6 @@
   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?logo=typescript&logoColor=white" alt="TypeScript">
   <img src="https://img.shields.io/badge/Django_REST_Framework-API-092E20?logo=django&logoColor=white" alt="Django REST Framework">
   <img src="https://img.shields.io/badge/JWT-Authentication-000000?logo=jsonwebtokens" alt="JWT">
-  <img src="https://img.shields.io/badge/Google_Gemini-AI-4285F4?logo=googlegemini&logoColor=white" alt="Google Gemini">
   <img src="https://img.shields.io/badge/AsyncStorage-Local_Storage-6C63FF" alt="AsyncStorage">
 </p>
 
@@ -47,7 +46,7 @@
 
 AppMovilFront is a cross-platform mobile application developed with **React Native** and **Expo** for an online perfume store.
 
-The application provides a modern shopping experience including user authentication, product catalog, shopping cart, favorites, invoices, payment cards and an AI assistant named **Giulia**, powered by **Google Gemini**. The mobile client communicates with a **Django REST API** responsible for authentication, product management, sales and invoicing.
+The application provides a modern shopping experience including user authentication, product catalog, shopping cart, favorites, invoices, payment cards and an AI assistant named **Giulia**, powered by **Groq**. The mobile client communicates with a **Django REST API** responsible for authentication, product management, sales and invoicing.
 
 ---
 
@@ -80,7 +79,7 @@ The application provides a modern shopping experience including user authenticat
 
 ## Artificial Intelligence
 
-- AI assistant powered by Google Gemini
+- AI assistant powered by Groq
 - Personalized perfume recommendations
 - Conversation history
 - Animated chat interface
@@ -103,9 +102,9 @@ The application provides a modern shopping experience including user authenticat
 | Development Platform | Expo |
 | Navigation | Expo Router |
 | Language | TypeScript |
-| Authentication | Firebase Authentication |
-| Database | Cloud Firestore |
-| AI | Google Gemini API |
+| Authentication | Django |
+| Database | Django - Postgres |
+| AI | Groq |
 | Local Storage | AsyncStorage |
 | Animations | Lottie React Native |
 | UI Effects | Expo Blur & Linear Gradient |
@@ -209,7 +208,7 @@ EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 
 EXPO_PUBLIC_FIREBASE_APP_ID=
 
-EXPO_PUBLIC_GEMINI_API_KEY=
+EXPO_PUBLIC_GROQ_API_KEY=
 ```
 
 Sensitive credentials should never be committed to the repository.
@@ -300,4 +299,4 @@ The application is fully functional and includes:
 
 # Author
 
-Cross-platform mobile e-commerce application developed with **React Native**, **Expo**, **Firebase** and **Google Gemini**, integrated with a **Django REST backend** to deliver a modern digital shopping experience.
+Cross-platform mobile e-commerce application developed with **React Native**, **Expo**, **Firebase** and **Groq**, integrated with a **Django REST backend** to deliver a modern digital shopping experience.
