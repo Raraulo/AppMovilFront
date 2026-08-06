@@ -3,7 +3,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyD1a13HbctNbuudUX-M2H3O7SJcCG3C3C4",
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || "",
   authDomain: "wawalle.firebaseapp.com",
   projectId: "wawalle",
   storageBucket: "wawalle.firebasestorage.app",

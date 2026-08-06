@@ -31,7 +31,7 @@ import { useApi } from "../../../contexts/ApiContext";
 
 const { width, height } = Dimensions.get("window");
 
-const GEMINI_API_KEY = "AIzaSyClDb-oeNphWQrY4qeqnbt9a7qLn4RhP4E";
+const GEMINI_API_KEY = process.env.EXPO_PUBLIC_GEMINI_API_KEY || "";
 const STORAGE_KEY = "giulia_conversations_v2";
 
 // Mensaje amigable que se muestra en el chat cuando falla la IA (incluye cuota excedida / demo)
